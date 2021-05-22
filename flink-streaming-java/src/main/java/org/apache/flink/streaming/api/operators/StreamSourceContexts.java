@@ -400,6 +400,7 @@ public class StreamSourceContexts {
         @Override
         public void collect(T element) {
             synchronized (checkpointLock) {
+
                 streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
 
                 if (nextCheck != null) {

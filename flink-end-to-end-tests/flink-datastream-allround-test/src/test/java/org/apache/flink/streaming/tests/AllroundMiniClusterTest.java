@@ -18,9 +18,12 @@
 
 package org.apache.flink.streaming.tests;
 
+import org.apache.commons.io.FileUtils;
+
 import org.apache.flink.configuration.CheckpointingOptions;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.testutils.MiniClusterResourceConfiguration;
+import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.test.util.MiniClusterWithClientResource;
 import org.apache.flink.util.TestLogger;
 
@@ -31,6 +34,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import java.io.File;
+import java.io.IOException;
 
 import static org.apache.flink.configuration.JobManagerOptions.EXECUTION_FAILOVER_STRATEGY;
 
@@ -48,7 +52,7 @@ public class AllroundMiniClusterTest extends TestLogger {
     public static MiniClusterWithClientResource miniClusterResource =
             new MiniClusterWithClientResource(
                     new MiniClusterResourceConfiguration.Builder()
-                            .setNumberTaskManagers(4)
+                            .setNumberTaskManagers(1)
                             .setNumberSlotsPerTaskManager(2)
                             .setConfiguration(createConfiguration())
                             .build());
@@ -65,15 +69,22 @@ public class AllroundMiniClusterTest extends TestLogger {
     @Test
     public void runTest() throws Exception {
         File checkpointDir = temporaryFolder.newFolder();
-        DataStreamAllroundTestProgram.main(
+        JoinWithStaticExample.main(
                 new String[] {
-                    "--environment.parallelism", "8",
+                    "--environment.parallelism", "2",
                     "--state_backend.checkpoint_directory", checkpointDir.toURI().toString(),
-                    "--state_backend", "rocks",
-                    "--state_backend.rocks.incremental", "true",
                     "--test.simulate_failure", "true",
-                    "--test.simulate_failure.max_failures", String.valueOf(Integer.MAX_VALUE),
-                    "--test.simulate_failure.num_records", "100000"
+                    "--test.simulate_failure.max_failures", String.valueOf(1),
+                    "--test.simulate_failure.num_records", "100"
                 });
     }
+
+    public void deleteFolderSafely(String path) throws IOException {
+        File folder = new File(path);
+        if (folder.exists()) {
+            FileUtils.cleanDirectory(folder);
+            FileUtils.deleteDirectory(folder);
+        }
+    }
+
 }

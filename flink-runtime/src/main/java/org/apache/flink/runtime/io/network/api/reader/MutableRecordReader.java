@@ -52,4 +52,9 @@ public class MutableRecordReader<T extends IOReadableWritable> extends AbstractR
     public void clearBuffers() {
         super.clearBuffers();
     }
+
+    @Override
+    public String getCurrentDataProducer() {
+        return currentDataProducer;
+    }
 }

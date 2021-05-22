@@ -25,6 +25,8 @@ import java.io.IOException;
 /** A record-oriented reader for mutable record types. */
 public interface MutableReader<T extends IOReadableWritable> extends ReaderBase {
 
+    String getCurrentDataProducer();
+
     boolean next(T target) throws IOException, InterruptedException;
 
     void clearBuffers();

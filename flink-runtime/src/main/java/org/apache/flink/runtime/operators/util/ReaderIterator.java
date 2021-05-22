@@ -58,6 +58,7 @@ public class ReaderIterator<T> implements MutableObjectIterator<T> {
         this.reusingDelegate.setInstance(target);
         try {
             if (this.reader.next(this.reusingDelegate)) {
+                //System.out.println("read record = "+this.reusingDelegate.getInstance()+" from "+reader.getCurrentDataProducer());
                 return this.reusingDelegate.getInstance();
             } else {
                 return null;
@@ -71,6 +72,7 @@ public class ReaderIterator<T> implements MutableObjectIterator<T> {
     public T next() throws IOException {
         try {
             if (this.reader.next(this.nonReusingDelegate)) {
+                //System.out.println("read record = "+this.nonReusingDelegate.getInstance()+" from "+reader.getCurrentDataProducer());
                 return this.nonReusingDelegate.getInstance();
             } else {
                 return null;

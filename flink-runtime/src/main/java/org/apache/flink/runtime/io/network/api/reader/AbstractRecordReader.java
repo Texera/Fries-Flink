@@ -60,6 +60,8 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
 
     private boolean isFinished;
 
+    public String currentDataProducer = "unknown";
+
     /**
      * Creates a new AbstractRecordReader that de-serializes records from the given input gate and
      * can spill partial records to disk, if they grow large.
@@ -123,6 +125,7 @@ abstract class AbstractRecordReader<T extends IOReadableWritable> extends Abstra
                 }
 
                 if (result.isFullRecord()) {
+                    currentDataProducer = inputGate.currentDataProducer;
                     return true;
                 }
             }

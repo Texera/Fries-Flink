@@ -19,6 +19,8 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.JobID;
+import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.core.fs.Path;
@@ -46,6 +48,8 @@ import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.jobgraph.JobVertex;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.metrics.TimerGauge;
@@ -84,6 +88,12 @@ import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxExecutorFactory;
 import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxProcessor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailboxImpl;
+import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.streaming.util.recovery.DataLogManager;
+import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
+import org.apache.flink.streaming.util.recovery.MailResolver;
+import org.apache.flink.streaming.util.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
@@ -247,10 +257,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     private Long syncSavepointId = null;
     private Long activeSyncSavepointId = null;
-
     private long latestAsyncCheckpointStartDelayNanos;
 
     private final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
+
+    protected MailResolver mailResolver;
+    protected DataLogManager dataLogManager;
 
     // ------------------------------------------------------------------------
 
@@ -326,7 +338,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         this.configuration = new StreamConfig(getTaskConfiguration());
         this.recordWriter = createRecordWriterDelegate(configuration, environment);
         this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
-        this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor);
+        this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor, environment.getTaskInfo().getTaskNameWithSubtasks());
         this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
         this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
         this.asyncOperationsThreadPool =
@@ -361,7 +373,58 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                         new ExecutorThreadFactory("channel-state-unspilling"));
 
         injectChannelStateWriterIntoChannels();
+        mailResolver = new MailResolver();
+        String id = getEnvironment().getJobVertexId().toString();
+        TaskInfo info = getEnvironment().getTaskInfo();
+        String logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
+        mailResolver.bind("Timer callback",x -> invokeProcessingTimeCallback((ProcessingTimeCallback)x[0],(long)x[1]));
+        int i = 0;
+        for (InputGate inputGate : getEnvironment().getAllInputGates()) {
+            mailResolver.bind("Input gate request partitions"+i, inputGate::requestPartitions);
+            i++;
+        }
+        mailResolver.bind("dispatch operator event", x -> operatorChain.dispatchOperatorEvent((OperatorID) x[0], (SerializedValue<OperatorEvent>) x[1]));
+        mailResolver.bind("signal check", (x) ->{ });
+        mailResolver.bind("checkpoint", (x) ->{
+            latestAsyncCheckpointStartDelayNanos =
+                    1_000_000
+                            * Math.max(
+                            0,
+                            System.currentTimeMillis()
+                                    - ((CheckpointMetaData)x[0]).getTimestamp());
+            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
+        });
+        mailResolver.bind("performCheckpoint", (x)-> {
+            CheckpointOptions checkpointOptions = (CheckpointOptions)x[0];
+            CheckpointMetaData checkpointMetaData = (CheckpointMetaData)x[1];
+            CheckpointMetricsBuilder checkpointMetrics = (CheckpointMetricsBuilder)x[2];
+            if (checkpointOptions.getCheckpointType().isSynchronous()) {
+                setSynchronousSavepointId(
+                        checkpointMetaData.getCheckpointId(),
+                        checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
 
+                if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
+                    advanceToEndOfEventTime();
+                }
+            } else if (activeSyncSavepointId != null
+                    && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
+                activeSyncSavepointId = null;
+                operatorChain.setIgnoreEndOfInput(false);
+            }
+
+            subtaskCheckpointCoordinator.checkpointState(
+                    checkpointMetaData,
+                    checkpointOptions,
+                    checkpointMetrics,
+                    operatorChain,
+                    this::isRunning);
+        });
+
+        AbstractLogStorage storage = AbstractLogStorage.getLogStorage(logName);
+        AsyncLogWriter writer = new AsyncLogWriter(storage);
+        StepCursor stepCursor = new StepCursor();
+        dataLogManager = new DataLogManager(writer, stepCursor);
+        mailboxProcessor.registerLogManagers(writer, mailResolver, dataLogManager, stepCursor);
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
 
@@ -549,6 +612,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         mainOperator = operatorChain.getMainOperator();
 
         // task specific initialization
+        //TODO: create logger and storage here
         init();
 
         // save the work of reloading state, etc, if the task is already canceled
@@ -593,16 +657,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 });
 
         List<CompletableFuture<?>> recoveredFutures = new ArrayList<>(inputGates.length);
+        int i = 0;
         for (InputGate inputGate : inputGates) {
+            final int fi = i;
             recoveredFutures.add(inputGate.getStateConsumedFuture());
-
             inputGate
                     .getStateConsumedFuture()
                     .thenRun(
                             () ->
                                     mainMailboxExecutor.execute(
                                             inputGate::requestPartitions,
-                                            "Input gate request partitions"));
+                                            "Input gate request partitions"+fi));
+            i++;
         }
 
         return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0]))
@@ -948,6 +1014,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             CheckpointMetaData checkpointMetaData, CheckpointOptions checkpointOptions) {
 
         CompletableFuture<Boolean> result = new CompletableFuture<>();
+        result.complete(true);
         mainMailboxExecutor.execute(
                 () -> {
                     latestAsyncCheckpointStartDelayNanos =
@@ -956,15 +1023,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                                             0,
                                             System.currentTimeMillis()
                                                     - checkpointMetaData.getTimestamp());
-                    try {
-                        result.complete(triggerCheckpoint(checkpointMetaData, checkpointOptions));
-                    } catch (Exception ex) {
-                        // Report the failure both via the Future result but also to the mailbox
-                        result.completeExceptionally(ex);
-                        throw ex;
-                    }
+                        triggerCheckpoint(checkpointMetaData, checkpointOptions);
                 },
-                "checkpoint %s with %s",
+                "checkpoint",
                 checkpointMetaData,
                 checkpointOptions);
         return result;
@@ -1069,6 +1130,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         if (isRunning) {
             actionExecutor.runThrowing(
                     () -> {
+                        System.out.println("ACTION EXEC: "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
                         if (checkpointOptions.getCheckpointType().isSynchronous()) {
                             setSynchronousSavepointId(
                                     checkpointMetaData.getCheckpointId(),
@@ -1408,7 +1470,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         return timestamp -> {
             mailboxExecutor.execute(
                     () -> invokeProcessingTimeCallback(callback, timestamp),
-                    "Timer callback for %s @ %d",
+                    "Timer callback",
                     callback,
                     timestamp);
         };

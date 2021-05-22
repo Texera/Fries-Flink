@@ -23,6 +23,12 @@ import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox.MailboxClosedException;
+import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.streaming.util.recovery.DPLogManager;
+import org.apache.flink.streaming.util.recovery.DataLogManager;
+import org.apache.flink.streaming.util.recovery.MailResolver;
+import org.apache.flink.streaming.util.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.WrappingRuntimeException;
@@ -31,6 +37,8 @@ import org.apache.flink.util.function.RunnableWithException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import scala.Tuple2;
+
 import javax.annotation.Nullable;
 
 import java.io.Closeable;
@@ -38,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox.MIN_PRIORITY;
+import static org.apache.flink.util.Preconditions.checkNotNull;
 import static org.apache.flink.util.Preconditions.checkState;
 
 /**
@@ -85,6 +94,8 @@ public class MailboxProcessor implements Closeable {
      */
     private boolean mailboxLoopRunning;
 
+    public String identifier = "unknown";
+
     /**
      * Control flag to temporary suspend the mailbox loop/processor. After suspending the mailbox
      * processor can be still later resumed. Must only be accessed from mailbox thread.
@@ -96,9 +107,11 @@ public class MailboxProcessor implements Closeable {
      * suspended default action (suspended if not-null) and to reuse the object as return value in
      * consecutive suspend attempts. Must only be accessed from mailbox thread.
      */
-    private DefaultActionSuspension suspendedDefaultAction;
+    public DefaultActionSuspension suspendedDefaultAction;
 
     private final StreamTaskActionExecutor actionExecutor;
+
+    private DPLogManager dpLogManager;
 
     @VisibleForTesting
     public MailboxProcessor() {
@@ -125,8 +138,25 @@ public class MailboxProcessor implements Closeable {
         this.suspendedDefaultAction = null;
     }
 
+    public MailboxProcessor(
+            MailboxDefaultAction mailboxDefaultAction,
+            TaskMailbox mailbox,
+            StreamTaskActionExecutor actionExecutor,
+            String identifier) {
+        this.mailboxDefaultAction = Preconditions.checkNotNull(mailboxDefaultAction);
+        this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
+        this.mailbox = Preconditions.checkNotNull(mailbox);
+        this.mailboxLoopRunning = true;
+        this.suspendedDefaultAction = null;
+        this.identifier = identifier;
+    }
+
     public MailboxExecutor getMainMailboxExecutor() {
         return new MailboxExecutorImpl(mailbox, MIN_PRIORITY, actionExecutor);
+    }
+
+    public void registerLogManagers(AsyncLogWriter writer, MailResolver mailResolver, DataLogManager dataLogManager, StepCursor stepCursor){
+        dpLogManager = new DPLogManager(writer, mailResolver, dataLogManager, stepCursor);
     }
 
     /**
@@ -341,7 +371,7 @@ public class MailboxProcessor implements Closeable {
                 maybeMail = Optional.of(mailbox.take(MIN_PRIORITY));
             }
             maybePauseIdleTimer();
-            maybeMail.get().run();
+            dpLogManager.inputControl(maybeMail.get());
             maybeRestartIdleTimer();
             processedSomething = true;
         }
@@ -356,7 +386,9 @@ public class MailboxProcessor implements Closeable {
             if (processedMails++ == 0) {
                 maybePauseIdleTimer();
             }
-            maybeMail.get().run();
+            Mail m = maybeMail.get();
+            System.out.println("MAILBOX: "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+            dpLogManager.inputControl(m);
             if (singleStep) {
                 break;
             }
@@ -429,7 +461,7 @@ public class MailboxProcessor implements Closeable {
         // Make sure that mailbox#hasMail is true via a dummy mail so that the flag change is
         // noticed.
         if (!mailbox.hasMail()) {
-            sendControlMail(() -> {}, "signal check");
+            sendControlMail(() -> {}, "signal check", System.currentTimeMillis());
         }
     }
 
@@ -466,7 +498,7 @@ public class MailboxProcessor implements Closeable {
      * Represents the suspended state of the default action and offers an idempotent method to
      * resume execution.
      */
-    private final class DefaultActionSuspension implements MailboxDefaultAction.Suspension {
+    public final class DefaultActionSuspension implements MailboxDefaultAction.Suspension {
         @Nullable private final TimerGauge suspensionTimer;
 
         public DefaultActionSuspension(@Nullable TimerGauge suspensionTimer) {
@@ -486,7 +518,7 @@ public class MailboxProcessor implements Closeable {
             }
         }
 
-        private void resumeInternal() {
+        public void resumeInternal() {
             if (suspendedDefaultAction == this) {
                 suspendedDefaultAction = null;
             }

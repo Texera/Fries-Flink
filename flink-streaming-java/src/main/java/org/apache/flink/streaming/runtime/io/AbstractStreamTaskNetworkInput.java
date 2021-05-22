@@ -23,6 +23,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.api.serialization.RecordDeserializer;
+import org.apache.flink.runtime.io.network.buffer.Buffer;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
@@ -31,6 +32,10 @@ import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.streaming.util.recovery.DataLogManager;
+
+import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -61,13 +66,15 @@ public abstract class AbstractStreamTaskNetworkInput<
     protected final int inputIndex;
     private InputChannelInfo lastChannel = null;
     private R currentRecordDeserializer = null;
+    private DataLogManager dataLogManager = null;
+    private int dataLogToken;
 
     public AbstractStreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
             TypeSerializer<T> inputSerializer,
             StatusWatermarkValve statusWatermarkValve,
             int inputIndex,
-            Map<InputChannelInfo, R> recordDeserializers) {
+            Map<InputChannelInfo, R> recordDeserializers, DataLogManager dataLogManager) {
         super();
         this.checkpointedInputGate = checkpointedInputGate;
         deserializationDelegate =
@@ -82,6 +89,11 @@ public abstract class AbstractStreamTaskNetworkInput<
         this.statusWatermarkValve = checkNotNull(statusWatermarkValve);
         this.inputIndex = inputIndex;
         this.recordDeserializers = checkNotNull(recordDeserializers);
+        if(dataLogManager != null){
+            this.dataLogToken = dataLogManager.registerInput(this::processElement, checkpointedInputGate::handleEvent);
+            this.dataLogManager = dataLogManager;
+            checkpointedInputGate.attachDataLogManager(dataLogToken, dataLogManager);
+        }
     }
 
     @Override
@@ -102,7 +114,8 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
-                    processElement(deserializationDelegate.getInstance(), output);
+                    //System.out.println("receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
+                    dataLogManager.inputData(dataLogToken, lastChannel, deserializationDelegate.getInstance(), output);
                     return InputStatus.MORE_AVAILABLE;
                 }
             }
@@ -113,8 +126,9 @@ public abstract class AbstractStreamTaskNetworkInput<
                 // data after the barrier before checkpoint is performed for unaligned checkpoint
                 // mode
                 if (bufferOrEvent.get().isBuffer()) {
-                    processBuffer(bufferOrEvent.get());
+                    processBuffer(bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get().getBuffer());
                 } else {
+                    //System.out.println("receive event = "+bufferOrEvent.get());
                     return processEvent(bufferOrEvent.get());
                 }
             } else {
@@ -129,18 +143,19 @@ public abstract class AbstractStreamTaskNetworkInput<
         }
     }
 
-    private void processElement(StreamElement recordOrMark, DataOutput<T> output) throws Exception {
+    private void processElement(InputChannelInfo channel, StreamElement recordOrMark, DataOutput<T> output) throws Exception {
         if (recordOrMark.isRecord()) {
+            // operator accepts record
             output.emitRecord(recordOrMark.asRecord());
         } else if (recordOrMark.isWatermark()) {
             statusWatermarkValve.inputWatermark(
-                    recordOrMark.asWatermark(), flattenedChannelIndices.get(lastChannel), output);
+                    recordOrMark.asWatermark(), flattenedChannelIndices.get(channel), output);
         } else if (recordOrMark.isLatencyMarker()) {
             output.emitLatencyMarker(recordOrMark.asLatencyMarker());
         } else if (recordOrMark.isStreamStatus()) {
             statusWatermarkValve.inputStreamStatus(
                     recordOrMark.asStreamStatus(),
-                    flattenedChannelIndices.get(lastChannel),
+                    flattenedChannelIndices.get(channel),
                     output);
         } else {
             throw new UnsupportedOperationException("Unknown type of StreamElement");
@@ -164,15 +179,16 @@ public abstract class AbstractStreamTaskNetworkInput<
         return InputStatus.MORE_AVAILABLE;
     }
 
-    protected void processBuffer(BufferOrEvent bufferOrEvent) throws IOException {
-        lastChannel = bufferOrEvent.getChannelInfo();
+    protected void processBuffer(InputChannelInfo info, Buffer buffer) throws IOException {
+        lastChannel = info;
         checkState(lastChannel != null);
-        currentRecordDeserializer = getActiveSerializer(bufferOrEvent.getChannelInfo());
+        //System.out.println("received buffer with size = "+buffer.getSize()+"from channel "+lastChannel.fromPartition);
+        currentRecordDeserializer = getActiveSerializer(info);
         checkState(
                 currentRecordDeserializer != null,
                 "currentRecordDeserializer has already been released");
 
-        currentRecordDeserializer.setNextBuffer(bufferOrEvent.getBuffer());
+        currentRecordDeserializer.setNextBuffer(buffer);
     }
 
     protected R getActiveSerializer(InputChannelInfo channelInfo) {

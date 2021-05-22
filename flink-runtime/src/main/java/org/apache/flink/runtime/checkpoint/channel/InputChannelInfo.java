@@ -18,6 +18,11 @@
 package org.apache.flink.runtime.checkpoint.channel;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
+
+import scala.None;
+import scala.Option;
+import scala.Some;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -31,12 +36,19 @@ import java.util.Objects;
 public class InputChannelInfo implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final int gateIdx;
-    private final int inputChannelIdx;
+    public final int gateIdx;
+    public final int inputChannelIdx;
+    public ResultPartitionID fromPartition;
 
-    public InputChannelInfo(int gateIdx, int inputChannelIdx) {
+    public InputChannelInfo(int gateIdx, int inputChannelIdx, ResultPartitionID fromPartition) {
         this.gateIdx = gateIdx;
         this.inputChannelIdx = inputChannelIdx;
+        this.fromPartition = fromPartition;
+    }
+
+
+    public InputChannelInfo(int gateIdx, int inputChannelIdx){
+        this(gateIdx, inputChannelIdx, null);
     }
 
     public int getGateIdx() {

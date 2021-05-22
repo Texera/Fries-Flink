@@ -31,18 +31,26 @@ import java.util.concurrent.Future;
 @Internal
 public class Mail {
     /** The action to execute. */
-    private final ThrowingRunnable<? extends Exception> runnable;
+    public final ThrowingRunnable<? extends Exception> runnable;
     /**
      * The priority of the mail. The priority does not determine the order, but helps to hide
      * upstream mails from downstream processors to avoid live/deadlocks.
      */
     private final int priority;
     /** The description of the mail that is used for debugging and error-reporting. */
-    private final String descriptionFormat;
+    public final String descriptionFormat;
 
-    private final Object[] descriptionArgs;
+    public final Object[] descriptionArgs;
 
     private final StreamTaskActionExecutor actionExecutor;
+
+    public Mail(String name, Object[] args){
+        this.runnable = null;
+        this.priority = 0;
+        this.descriptionFormat = name;
+        this.descriptionArgs = args;
+        this.actionExecutor = null;
+    }
 
     public Mail(
             ThrowingRunnable<? extends Exception> runnable,

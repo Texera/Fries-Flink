@@ -78,6 +78,8 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
 public abstract class InputGate
         implements PullingAsyncDataInput<BufferOrEvent>, AutoCloseable, ChannelStateHolder {
 
+    public String currentDataProducer = "unknown";
+
     protected final AvailabilityHelper availabilityHelper = new AvailabilityHelper();
 
     protected final AvailabilityHelper priorityAvailabilityHelper = new AvailabilityHelper();

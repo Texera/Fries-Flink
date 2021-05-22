@@ -215,7 +215,6 @@ public class UnionInputGate extends InputGate {
                     return Optional.empty();
                 }
                 final IndexedInputGate inputGate = inputGateOpt.get();
-
                 Optional<BufferOrEvent> nextOpt = inputGate.pollNext();
                 if (!nextOpt.isPresent()) {
                     assertNoException(
@@ -224,7 +223,7 @@ public class UnionInputGate extends InputGate {
                                     .thenRun(() -> queueInputGate(inputGate, false)));
                     continue;
                 }
-
+                currentDataProducer = inputGate.currentDataProducer;
                 return Optional.of(processBufferOrEvent(inputGate, nextOpt.get()));
             }
         }

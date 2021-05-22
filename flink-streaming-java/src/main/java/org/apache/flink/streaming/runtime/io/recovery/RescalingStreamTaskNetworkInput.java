@@ -45,6 +45,10 @@ import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+
+import org.apache.flink.streaming.util.recovery.DataLogManager;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -85,6 +89,7 @@ public final class RescalingStreamTaskNetworkInput<T>
     private static final Logger LOG =
             LoggerFactory.getLogger(RescalingStreamTaskNetworkInput.class);
     private final IOManager ioManager;
+    private DataLogManager dataLogManager;
 
     public RescalingStreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
@@ -94,7 +99,7 @@ public final class RescalingStreamTaskNetworkInput<T>
             int inputIndex,
             InflightDataRescalingDescriptor inflightDataRescalingDescriptor,
             Function<Integer, StreamPartitioner<?>> gatePartitioners,
-            TaskInfo taskInfo) {
+            TaskInfo taskInfo, DataLogManager dataLogManager) {
         super(
                 checkpointedInputGate,
                 inputSerializer,
@@ -106,9 +111,9 @@ public final class RescalingStreamTaskNetworkInput<T>
                         ioManager,
                         inflightDataRescalingDescriptor,
                         gatePartitioners,
-                        taskInfo));
+                        taskInfo), dataLogManager);
         this.ioManager = ioManager;
-
+        this.dataLogManager = dataLogManager;
         LOG.info(
                 "Created demultiplexer for input {} from {}",
                 inputIndex,
@@ -159,7 +164,7 @@ public final class RescalingStreamTaskNetworkInput<T>
                 inputSerializer,
                 ioManager,
                 statusWatermarkValve,
-                inputIndex);
+                inputIndex, dataLogManager);
     }
 
     protected DemultiplexingRecordDeserializer<T> getActiveSerializer(

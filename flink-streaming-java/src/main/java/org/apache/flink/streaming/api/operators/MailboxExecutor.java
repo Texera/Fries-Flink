@@ -240,4 +240,5 @@ public interface MailboxExecutor {
      * @throws RuntimeException if executed {@link RunnableWithException} thrown an exception.
      */
     boolean tryYield() throws FlinkRuntimeException;
+
 }

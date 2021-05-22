@@ -155,6 +155,7 @@ class AkkaRpcActor<T extends RpcEndpoint & RpcGateway> extends AbstractActor {
             mainThreadValidator.enterMainThread();
 
             try {
+                //System.out.println("akka rpc actor received message: "+message);
                 handleRpcMessage(message);
             } finally {
                 mainThreadValidator.exitMainThread();

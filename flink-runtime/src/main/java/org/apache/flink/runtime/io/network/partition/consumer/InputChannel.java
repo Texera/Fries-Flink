@@ -91,7 +91,7 @@ public abstract class InputChannel {
         checkArgument(initial >= 0 && initial <= max);
 
         this.inputGate = checkNotNull(inputGate);
-        this.channelInfo = new InputChannelInfo(inputGate.getGateIndex(), channelIndex);
+        this.channelInfo = new InputChannelInfo(inputGate.getGateIndex(), channelIndex, partitionId);
         this.partitionId = checkNotNull(partitionId);
 
         this.initialBackoff = initial;

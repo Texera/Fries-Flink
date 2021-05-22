@@ -162,7 +162,7 @@ public class StreamTaskNetworkInputTest {
                         inSerializer,
                         ioManager,
                         new StatusWatermarkValve(numInputChannels),
-                        0);
+                        0, null);
 
         inputGate.sendEvent(
                 new CheckpointBarrier(
@@ -250,7 +250,7 @@ public class StreamTaskNetworkInputTest {
                 LongSerializer.INSTANCE,
                 ioManager,
                 new StatusWatermarkValve(1),
-                0);
+                0, null);
     }
 
     private static CheckpointedInputGate createCheckpointedInputGate(InputGate inputGate) {
@@ -342,7 +342,7 @@ public class StreamTaskNetworkInputTest {
                     inSerializer,
                     new StatusWatermarkValve(numInputChannels),
                     0,
-                    deserializers);
+                    deserializers, null);
         }
 
         @Override

@@ -21,13 +21,15 @@ package org.apache.flink.util.function;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.util.ExceptionUtils;
 
+import java.io.Serializable;
+
 /**
  * Similar to a {@link Runnable}, this interface is used to capture a block of code to be executed.
  * In contrast to {@code Runnable}, this interface allows throwing checked exceptions.
  */
 @PublicEvolving
 @FunctionalInterface
-public interface ThrowingRunnable<E extends Throwable> {
+public interface ThrowingRunnable<E extends Throwable> extends Serializable {
 
     /**
      * The work method.
