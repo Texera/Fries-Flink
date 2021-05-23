@@ -386,7 +386,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             i++;
         }
         mailResolver.bind("dispatch operator event", x -> operatorChain.dispatchOperatorEvent((OperatorID) x[0], (SerializedValue<OperatorEvent>) x[1]));
-        mailResolver.bind("signal check", (x) ->{ });
         mailResolver.bind("checkpoint", (x) ->{
             latestAsyncCheckpointStartDelayNanos =
                     1_000_000
