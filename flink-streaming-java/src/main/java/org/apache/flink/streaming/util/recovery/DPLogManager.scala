@@ -44,16 +44,16 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
     if(stepCursor.isRecoveryCompleted){
       while(controlQueue.nonEmpty){
         val mail = controlQueue.dequeue()
+        stepCursor.advance()
         persistCurrentControl(mail)
         println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
         mailResolver.call(mail)
-        stepCursor.advance()
       }
     }
   }
 
   def recoverControl(): Unit ={
-    while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.getCursor){
+    while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.getCursor+1){
       correlatedSeq.dequeue()
       val mail = controlQueue.dequeue()
       println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")

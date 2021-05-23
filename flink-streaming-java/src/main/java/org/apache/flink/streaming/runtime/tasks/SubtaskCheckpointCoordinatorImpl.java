@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.VisibleForTesting;
+import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.core.fs.CloseableRegistry;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
@@ -286,6 +287,9 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             options = options.withUnalignedSupported();
             initInputsCheckpoint(metadata.getCheckpointId(), options);
         }
+        String id = env.getJobVertexId().toString();
+        TaskInfo info = env.getTaskInfo();
+        String logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
 
         // Step (1): Prepare the checkpoint, allow operators to do some pre-barrier work.
         //           The pre-barrier work should be nothing or minimal in the common case.
@@ -312,11 +316,13 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             if (takeSnapshotSync(
                     snapshotFutures, metadata, metrics, options, operatorChain, isRunning)) {
                 finishAndReportAsync(snapshotFutures, metadata, metrics, isRunning);
+                System.out.println(logName+" checkpoint progress: fully completed");
             } else {
                 cleanup(snapshotFutures, metadata, metrics, new Exception("Checkpoint declined"));
             }
         } catch (Exception ex) {
             cleanup(snapshotFutures, metadata, metrics, ex);
+            System.out.println(id+" checkpoint failed: "+ex.getMessage());
             throw ex;
         }
     }

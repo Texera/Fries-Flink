@@ -1,13 +1,21 @@
 package org.apache.flink.streaming.util.recovery
 
 class StepCursor(target:Long) {
-  private var cursor = 1L
+  private var _cursor = 0L
+  private var _callback:() => Unit = _
 
-  def isRecoveryCompleted:Boolean = cursor > target
+  def isRecoveryCompleted:Boolean = _cursor >= target
 
-  def advance(): Unit ={
-    cursor+=1
+  def onComplete(callback:() => Unit):Unit = {
+    _callback = callback
   }
 
-  def getCursor:Long = cursor
+  def advance(): Unit ={
+    _cursor+=1
+    if(_cursor == target && _callback != null){
+      _callback()
+    }
+  }
+
+  def getCursor:Long = _cursor
 }

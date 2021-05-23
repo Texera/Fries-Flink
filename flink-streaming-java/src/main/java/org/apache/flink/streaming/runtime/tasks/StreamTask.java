@@ -1102,7 +1102,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 checkpointOptions.getCheckpointType(),
                 getName());
 
-        System.out.println(logName+" before perform checkpoint isRunning: "+isRunning);
         if (isRunning) {
             actionExecutor.runThrowing(
                     () -> {

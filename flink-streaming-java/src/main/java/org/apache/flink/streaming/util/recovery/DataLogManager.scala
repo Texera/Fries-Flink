@@ -40,6 +40,21 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
 
   private val inners = new mutable.HashMap[Int, DataLogManagerInner[_]]()
   private val ofoMap = new mutable.HashMap[Int, mutable.HashMap[InputChannelInfo, mutable.Queue[Either[BufferOrEvent, (StreamElement, DataOutput[_])]]]]()
+  private val spilled = new mutable.Queue[(Int, InputChannelInfo, Either[BufferOrEvent, (StreamElement, DataOutput[_])])]()
+
+  stepCursor.onComplete(() =>{
+    if(ofoMap.nonEmpty){
+      ofoMap.foreach{
+        case (gate, channelMap) =>
+          channelMap.foreach{
+            case (channel, queue) =>
+              queue.foreach(elem => spilled.enqueue((gate, channel, elem)))
+          }
+      }
+      ofoMap.clear()
+    }
+  })
+
   def registerInput[T](handler:ThrowingTriConsumer[InputChannelInfo,StreamElement, DataOutput[T], _],eventHandler: ThrowingConsumer[BufferOrEvent, _]): Int ={
     val token = inners.size
     inners(token) = new DataLogManagerInner(handler,eventHandler)
@@ -55,19 +70,29 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
       val entry2 = entry1.getOrElseUpdate(channel, mutable.Queue())
       entry2.enqueue(Right(elem, dataOutput))
       recoverUpstream()
-    }else{
+    }else if(spilled.nonEmpty){
+      spilled.enqueue((token, channel, Right(elem, dataOutput)))
+      val (altGate, altChannel, altPayload) = spilled.dequeue()
+      preprocessInput(altGate, altChannel)
+      processElement(altGate, altChannel, altPayload)
+    }else {
       preprocessInput(token, channel)
       inners(token).asInstanceOf[DataLogManagerInner[T]].inputDataRecord(channel, elem, dataOutput)
       PROCESSED_RECORD
     }
   }
 
-  def inputEvent(token:Int, channel:InputChannelInfo, elem:BufferOrEvent): Int ={
+  def inputEvent[T](token:Int, channel:InputChannelInfo, elem:BufferOrEvent): Int ={
     if(!stepCursor.isRecoveryCompleted) {
       val entry1 = ofoMap.getOrElseUpdate(token, mutable.HashMap())
       val entry2 = entry1.getOrElseUpdate(channel, mutable.Queue())
       entry2.enqueue(Left(elem))
       recoverUpstream()
+    }else if(spilled.nonEmpty){
+      spilled.enqueue((token, channel, Left(elem)))
+      val (altGate, altChannel, altPayload) = spilled.dequeue()
+      preprocessInput(altGate, altChannel)
+      processElement(altGate, altChannel, altPayload)
     }else{
       preprocessInput(token, channel)
       inners(token).inputEvent(channel, elem)
@@ -78,16 +103,7 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
 
   def recoverUpstream[T]():Int = {
     if(ofoMap.contains(lastGate) && ofoMap(lastGate).contains(lastChannel) && ofoMap(lastGate)(lastChannel).nonEmpty){
-      var ret = 0
-      ofoMap(lastGate)(lastChannel).dequeue() match {
-        case Left(a) =>
-          inners(lastGate).inputEvent(lastChannel, a)
-          lastBuffer = a
-          ret = PROCESSED_EVENT
-        case Right((s,d)) =>
-          inners(lastGate).asInstanceOf[DataLogManagerInner[T]].inputDataRecord(lastChannel, s, d.asInstanceOf[DataOutput[T]])
-          ret = PROCESSED_RECORD
-      }
+      val ret = processElement(lastGate, lastChannel, ofoMap(lastGate)(lastChannel).dequeue())
       recordCount += 1
       if(prevCounts.nonEmpty && recordCount == prevCounts.head){
         prevCounts.dequeue()
@@ -97,8 +113,25 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
         recordCount = 0
       }
       ret
+    }else if(spilled.nonEmpty){
+      val (altGate, altChannel, altPayload) = spilled.dequeue()
+      preprocessInput(altGate, altChannel)
+      processElement(altGate, altChannel, altPayload)
     }else{
       PROCESSED_NOTHING
+    }
+  }
+
+
+  def processElement[T](gate:Int, channel:InputChannelInfo, either: Either[BufferOrEvent, (StreamElement, DataOutput[_])]): Int ={
+    either match {
+      case Left(a) =>
+        inners(gate).inputEvent(channel, a)
+        lastBuffer = a
+        PROCESSED_EVENT
+      case Right((s,d)) =>
+        inners(gate).asInstanceOf[DataLogManagerInner[T]].inputDataRecord(channel, s, d.asInstanceOf[DataOutput[T]])
+        PROCESSED_RECORD
     }
   }
 
@@ -112,7 +145,6 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
     }else{
       recordCount += 1
     }
-    logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
   }
 
   class DataLogManagerInner[T](dataHandler: ThrowingTriConsumer[InputChannelInfo,StreamElement, DataOutput[T], _],
@@ -122,12 +154,14 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
       println(s"${logWriter.storage.name} receive data = $elem when step = ${stepCursor.getCursor} from $channel")
       dataHandler.accept(channel, elem, output)
       stepCursor.advance()
+      logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
     }
 
     def inputEvent(channel: InputChannelInfo, elem:BufferOrEvent): Unit ={
       println(s"${logWriter.storage.name} receive event = $elem when step = ${stepCursor.getCursor} from $channel")
       eventHandler.accept(elem)
       stepCursor.advance()
+      logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
     }
   }
 

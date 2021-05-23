@@ -413,57 +413,34 @@ public class StreamSourceContexts {
 
         @Override
         public void collect(T element) {
-            synchronized (checkpointLock) {
-                if(dpLogManager.isEnabled()) {
-                    synchronized (dpLogManager.stepCursor()) {
-                        dpLogManager.stepCursor().advance();
+            // first acquire stepCursor lock to avoid deadlock
+            synchronized (dpLogManager.stepCursor()) {
+                synchronized (checkpointLock) {
+                    if (dpLogManager.isEnabled()) {
                         dpLogManager.recoverControl();
-                        performCollect(element);
+                        dpLogManager.stepCursor().advance();
                     }
-                }else{
-                    performCollect(element);
+                    System.out.println("emit tuple: "+element+" when step = "+ dpLogManager.stepCursor().getCursor());
+                    streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
+                    if (nextCheck != null) {
+                        this.failOnNextCheck = false;
+                    } else {
+                        scheduleNextIdleDetectionTask();
+                    }
+                    processAndCollect(element);
                 }
             }
-        }
-
-
-        private void performCollect(T element){
-            streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
-            if (nextCheck != null) {
-                this.failOnNextCheck = false;
-            } else {
-                scheduleNextIdleDetectionTask();
-            }
-            processAndCollect(element);
         }
 
         @Override
         public void collectWithTimestamp(T element, long timestamp) {
-            synchronized (checkpointLock) {
-                synchronized (dpLogManager.stepCursor()){
-                    dpLogManager.stepCursor().advance();
-                    dpLogManager.recoverControl();
-                }
-                streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
-
-                if (nextCheck != null) {
-                    this.failOnNextCheck = false;
-                } else {
-                    scheduleNextIdleDetectionTask();
-                }
-
-                processAndCollectWithTimestamp(element, timestamp);
-            }
-        }
-
-        @Override
-        public void emitWatermark(Watermark mark) {
-            if (allowWatermark(mark)) {
+            synchronized (dpLogManager.stepCursor()) {
                 synchronized (checkpointLock) {
-                    synchronized (dpLogManager.stepCursor()){
-                        dpLogManager.stepCursor().advance();
+                    if (dpLogManager.isEnabled()) {
                         dpLogManager.recoverControl();
+                        dpLogManager.stepCursor().advance();
                     }
+                    System.out.println("emit tuple: "+element+" when step = "+ dpLogManager.stepCursor().getCursor());
                     streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
 
                     if (nextCheck != null) {
@@ -472,7 +449,31 @@ public class StreamSourceContexts {
                         scheduleNextIdleDetectionTask();
                     }
 
-                    processAndEmitWatermark(mark);
+                    processAndCollectWithTimestamp(element, timestamp);
+                }
+            }
+        }
+
+        @Override
+        public void emitWatermark(Watermark mark) {
+            if (allowWatermark(mark)) {
+                synchronized (dpLogManager.stepCursor()) {
+                    synchronized (checkpointLock) {
+                        if(dpLogManager.isEnabled()){
+                            dpLogManager.recoverControl();
+                            dpLogManager.stepCursor().advance();
+                        }
+                        System.out.println("emit watermark: "+mark+" when step = "+ dpLogManager.stepCursor().getCursor());
+                        streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
+
+                        if (nextCheck != null) {
+                            this.failOnNextCheck = false;
+                        } else {
+                            scheduleNextIdleDetectionTask();
+                        }
+
+                        processAndEmitWatermark(mark);
+                    }
                 }
             }
         }

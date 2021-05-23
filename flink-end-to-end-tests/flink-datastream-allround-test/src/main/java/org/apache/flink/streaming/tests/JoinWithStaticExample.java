@@ -56,7 +56,7 @@ public class JoinWithStaticExample {
             @Override
             public void run(SourceContext<Long> ctx) throws Exception {
                 int count = 0;
-                while (count< 1000) {
+                while (count< 1300) {
                     count++;
                     Thread.sleep(10);
                     ctx.collect((long)count%3);
@@ -76,7 +76,7 @@ public class JoinWithStaticExample {
             public void run(SourceContext<Tuple2<Long, String>> ctx) throws Exception {
                 // delay a bit so that the join operator actually has to buffer elements from
                 // the first input
-                Thread.sleep(5000);
+                Thread.sleep(10000);
                 ctx.collect(new Tuple2<>(0L, "a"));
                 ctx.collect(new Tuple2<>(1L, "b"));
                 ctx.collect(new Tuple2<>(2L, "c"));
