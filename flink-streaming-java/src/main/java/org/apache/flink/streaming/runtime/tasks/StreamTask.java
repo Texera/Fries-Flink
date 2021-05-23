@@ -19,7 +19,6 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
-import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.TaskInfo;
 import org.apache.flink.configuration.TaskManagerOptions;
 import org.apache.flink.core.fs.CloseableRegistry;
@@ -48,8 +47,6 @@ import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
-import org.apache.flink.runtime.jobgraph.JobVertex;
-import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.metrics.TimerGauge;
@@ -90,8 +87,8 @@ import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailboxImpl;
 import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
 import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.streaming.util.recovery.DPLogManager;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
-import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.streaming.util.recovery.MailResolver;
 import org.apache.flink.streaming.util.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
@@ -263,6 +260,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     protected MailResolver mailResolver;
     protected DataLogManager dataLogManager;
+    public DPLogManager dpLogManager;
+    private String logName;
 
     // ------------------------------------------------------------------------
 
@@ -338,6 +337,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         this.configuration = new StreamConfig(getTaskConfiguration());
         this.recordWriter = createRecordWriterDelegate(configuration, environment);
         this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
+        String id = getEnvironment().getJobVertexId().toString();
+        TaskInfo info = getEnvironment().getTaskInfo();
+        logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
+        AbstractLogStorage storage = AbstractLogStorage.getLogStorage(logName);
+        AsyncLogWriter writer = new AsyncLogWriter(storage);
+        StepCursor stepCursor = new StepCursor(storage.getStepCursor());
         this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor, environment.getTaskInfo().getTaskNameWithSubtasks());
         this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
         this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
@@ -374,9 +379,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
         injectChannelStateWriterIntoChannels();
         mailResolver = new MailResolver();
-        String id = getEnvironment().getJobVertexId().toString();
-        TaskInfo info = getEnvironment().getTaskInfo();
-        String logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         mailResolver.bind("Timer callback",x -> invokeProcessingTimeCallback((ProcessingTimeCallback)x[0],(long)x[1]));
         int i = 0;
         for (InputGate inputGate : getEnvironment().getAllInputGates()) {
@@ -394,37 +396,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                                     - ((CheckpointMetaData)x[0]).getTimestamp());
             triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
         });
-        mailResolver.bind("performCheckpoint", (x)-> {
-            CheckpointOptions checkpointOptions = (CheckpointOptions)x[0];
-            CheckpointMetaData checkpointMetaData = (CheckpointMetaData)x[1];
-            CheckpointMetricsBuilder checkpointMetrics = (CheckpointMetricsBuilder)x[2];
-            if (checkpointOptions.getCheckpointType().isSynchronous()) {
-                setSynchronousSavepointId(
-                        checkpointMetaData.getCheckpointId(),
-                        checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
-
-                if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
-                    advanceToEndOfEventTime();
-                }
-            } else if (activeSyncSavepointId != null
-                    && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
-                activeSyncSavepointId = null;
-                operatorChain.setIgnoreEndOfInput(false);
-            }
-
-            subtaskCheckpointCoordinator.checkpointState(
-                    checkpointMetaData,
-                    checkpointOptions,
-                    checkpointMetrics,
-                    operatorChain,
-                    this::isRunning);
-        });
-
-        AbstractLogStorage storage = AbstractLogStorage.getLogStorage(logName);
-        AsyncLogWriter writer = new AsyncLogWriter(storage);
-        StepCursor stepCursor = new StepCursor();
+        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
         dataLogManager = new DataLogManager(writer, stepCursor);
-        mailboxProcessor.registerLogManagers(writer, mailResolver, dataLogManager, stepCursor);
+        mailboxProcessor.registerLogManager(dpLogManager);
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
 
@@ -698,6 +672,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         // final check to exit early before starting to run
         ensureNotCanceled();
 
+        dpLogManager.enable();
+        dataLogManager.enable();
         // let the task do its work
         runMailboxLoop();
 
@@ -1127,10 +1103,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 checkpointOptions.getCheckpointType(),
                 getName());
 
+        System.out.println(logName+" before perform checkpoint isRunning: "+isRunning);
         if (isRunning) {
             actionExecutor.runThrowing(
                     () -> {
-                        System.out.println("ACTION EXEC: "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
                         if (checkpointOptions.getCheckpointType().isSynchronous()) {
                             setSynchronousSavepointId(
                                     checkpointMetaData.getCheckpointId(),

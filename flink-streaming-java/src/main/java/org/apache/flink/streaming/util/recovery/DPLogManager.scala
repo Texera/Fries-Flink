@@ -5,12 +5,14 @@ import org.apache.flink.streaming.util.recovery.AbstractLogStorage._
 
 import scala.collection.mutable
 
-class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, dataLogManager: DataLogManager, stepCursor: StepCursor) {
+class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val stepCursor: StepCursor) extends AbstractLogManager  {
 
   val controlQueue = new mutable.Queue[Mail]()
   val currentSender = "anywhere"
   var currentSeq = 0L
-  val orderingManager = new FIFOManager[Mail, String]((s, m) => controlQueue.enqueue(m))
+  val orderingManager = new FIFOManager[Mail, String]((s, m) => {
+    controlQueue.enqueue(m)
+  })
 
   // For recovery, only need to replay control messages, and then it's done
   logWriter.storage.getLogs.foreach {
@@ -21,7 +23,6 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, dataLo
     //skip
   }
 
-  private val targetStepCursor = logWriter.storage.getStepCursor
   private val correlatedSeq = logWriter.storage.getLogs
     .collect {
       case DPCursor(idx) => idx
@@ -37,32 +38,29 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, dataLo
     }
     orderingManager.handleMessage(currentSender, currentSeq, mail)
     currentSeq += 1
-    recoverControl()
-    if(stepCursor.cursor > targetStepCursor){
+    if(stepCursor.isRecoveryCompleted){
       while(controlQueue.nonEmpty){
         val mail = controlQueue.dequeue()
         persistCurrentControl(mail)
-        println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.cursor}")
+        println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
         mailResolver.call(mail)
+        stepCursor.advance()
       }
     }
-    stepCursor.cursor += 1
   }
 
   def recoverControl(): Unit ={
-    while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.cursor){
+    while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.getCursor){
       correlatedSeq.dequeue()
       val mail = controlQueue.dequeue()
-      println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.cursor}")
+      println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
       mailResolver.call(mail)
-    }
-    if(stepCursor.cursor == targetStepCursor){
-      dataLogManager.completeRecovery()
+      stepCursor.advance()
     }
   }
 
   def persistCurrentControl(mail:Mail): Unit = {
     logWriter.addLogRecord(ControlRecord(mail.descriptionFormat, mail.descriptionArgs))
-    logWriter.addLogRecord(DPCursor(stepCursor.cursor))
+    logWriter.addLogRecord(DPCursor(stepCursor.getCursor))
   }
 }

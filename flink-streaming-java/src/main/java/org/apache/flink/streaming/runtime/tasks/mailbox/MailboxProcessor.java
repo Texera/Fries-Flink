@@ -51,7 +51,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 
 /**
  * This class encapsulates the logic of the mailbox-based execution model. At the core of this model
- * {@link #runMailboxLoop()} that continuously executes the provided {@link MailboxDefaultAction} in
+ *  that continuously executes the provided {@link MailboxDefaultAction} in
  * a loop. On each iteration, the method also checks if there are pending actions in the mailbox and
  * executes such actions. This model ensures single-threaded execution between the default action
  * (e.g. record processing) and mailbox actions (e.g. checkpoint trigger, timer firing, ...).
@@ -60,7 +60,7 @@ import static org.apache.flink.util.Preconditions.checkState;
  * MailboxController} to communicate control flow changes to the mailbox loop, e.g. that invocations
  * of the default action are temporarily or permanently exhausted.
  *
- * <p>The design of {@link #runMailboxLoop()} is centered around the idea of keeping the expected
+ * <p>The design of  is centered around the idea of keeping the expected
  * hot path (default action, no mail) as fast as possible. This means that all checking of mail and
  * other control flags (mailboxLoopRunning, suspendedDefaultAction) are always connected to #hasMail
  * indicating true. This means that control flag changes in the mailbox thread can be done directly,
@@ -155,8 +155,8 @@ public class MailboxProcessor implements Closeable {
         return new MailboxExecutorImpl(mailbox, MIN_PRIORITY, actionExecutor);
     }
 
-    public void registerLogManagers(AsyncLogWriter writer, MailResolver mailResolver, DataLogManager dataLogManager, StepCursor stepCursor){
-        dpLogManager = new DPLogManager(writer, mailResolver, dataLogManager, stepCursor);
+    public void registerLogManager(DPLogManager dpLogManager){
+        this.dpLogManager = dpLogManager;
     }
 
     /**
@@ -229,6 +229,11 @@ public class MailboxProcessor implements Closeable {
 
         while (isNextLoopPossible()) {
             // The blocking `processMail` call will not return until default action is available.
+            if(dpLogManager.isEnabled()) {
+                synchronized (dpLogManager.stepCursor()) {
+                    dpLogManager.recoverControl();
+                }
+            }
             processMail(localMailbox, false);
             if (isNextLoopPossible()) {
                 mailboxDefaultAction.runDefaultAction(
@@ -332,8 +337,7 @@ public class MailboxProcessor implements Closeable {
 
     /**
      * This helper method handles all special actions from the mailbox. In the current design, this
-     * method also evaluates all control flag changes. This keeps the hot path in {@link
-     * #runMailboxLoop()} free from any other flag checking, at the cost that all flag changes must
+     * method also evaluates all control flag changes. This keeps the hot path in  free from any other flag checking, at the cost that all flag changes must
      * make sure that the mailbox signals mailbox#hasMail.
      *
      * @return true if a mail has been processed.
@@ -371,7 +375,15 @@ public class MailboxProcessor implements Closeable {
                 maybeMail = Optional.of(mailbox.take(MIN_PRIORITY));
             }
             maybePauseIdleTimer();
-            dpLogManager.inputControl(maybeMail.get());
+            Mail m = maybeMail.get();
+            if(dpLogManager.isEnabled()){
+                synchronized (dpLogManager.stepCursor()) {
+                    dpLogManager.recoverControl();
+                    dpLogManager.inputControl(m);
+                }
+            }else{
+                m.run();
+            }
             maybeRestartIdleTimer();
             processedSomething = true;
         }
@@ -387,8 +399,14 @@ public class MailboxProcessor implements Closeable {
                 maybePauseIdleTimer();
             }
             Mail m = maybeMail.get();
-            System.out.println("MAILBOX: "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
-            dpLogManager.inputControl(m);
+            if(dpLogManager.isEnabled()){
+                synchronized (dpLogManager.stepCursor()) {
+                    dpLogManager.recoverControl();
+                    dpLogManager.inputControl(m);
+                }
+            }else{
+                m.run();
+            }
             if (singleStep) {
                 break;
             }

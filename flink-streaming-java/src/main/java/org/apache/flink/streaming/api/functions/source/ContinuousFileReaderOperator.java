@@ -311,7 +311,7 @@ public class ContinuousFileReaderOperator<OUT, T extends TimestampedInputSplit>
                         getContainingTask().getStreamStatusMaintainer(),
                         output,
                         getRuntimeContext().getExecutionConfig().getAutoWatermarkInterval(),
-                        -1);
+                        -1, getContainingTask().dpLogManager);
 
         this.reusedRecord = serializer.createInstance();
         this.completedSplitsCounter = getMetricGroup().counter("numSplitsProcessed");

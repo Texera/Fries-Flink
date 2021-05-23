@@ -165,7 +165,6 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
         BufferOrEvent bufferOrEvent = next.get();
 
         if (bufferOrEvent.isEvent()) {
-            dataLogManager.inputEvent(token,bufferOrEvent.getChannelInfo(), bufferOrEvent);
             return Optional.of(bufferOrEvent);
         } else if (bufferOrEvent.isBuffer()) {
             /**

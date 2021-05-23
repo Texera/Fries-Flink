@@ -35,6 +35,8 @@ import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
 
+import org.apache.flink.streaming.util.recovery.StepCursor;
+
 import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
@@ -115,7 +117,23 @@ public abstract class AbstractStreamTaskNetworkInput<
 
                 if (result.isFullRecord()) {
                     //System.out.println("receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
-                    dataLogManager.inputData(dataLogToken, lastChannel, deserializationDelegate.getInstance(), output);
+                    if(dataLogManager.isEnabled()){
+                        int ret;
+                        synchronized (dataLogManager.stepCursor()) {
+                           ret = dataLogManager.inputData(
+                                    dataLogToken,
+                                    lastChannel,
+                                    deserializationDelegate.getInstance(),
+                                    output);
+                        }
+                        if(ret == DataLogManager.PROCESSED_EVENT()){
+                            return processEvent(dataLogManager.getBuffer());
+                        }else{
+                            return InputStatus.MORE_AVAILABLE;
+                        }
+                    }else{
+                        processElement(lastChannel, deserializationDelegate.getInstance(), output);
+                    }
                     return InputStatus.MORE_AVAILABLE;
                 }
             }
@@ -129,9 +147,33 @@ public abstract class AbstractStreamTaskNetworkInput<
                     processBuffer(bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get().getBuffer());
                 } else {
                     //System.out.println("receive event = "+bufferOrEvent.get());
+                    if(dataLogManager.isEnabled()){
+                        int ret;
+                        synchronized (dataLogManager.stepCursor()){
+                            ret = dataLogManager.inputEvent(dataLogToken,bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get());
+                        }
+                        if(ret == DataLogManager.PROCESSED_EVENT()){
+                            return processEvent(dataLogManager.getBuffer());
+                        }else{
+                            return InputStatus.MORE_AVAILABLE;
+                        }
+                    }else{
+                        checkpointedInputGate.handleEvent(bufferOrEvent.get());
+                    }
                     return processEvent(bufferOrEvent.get());
                 }
             } else {
+                if(dataLogManager.isEnabled()){
+                    int ret;
+                    synchronized (dataLogManager.stepCursor()){
+                        ret = dataLogManager.recoverUpstream();
+                    }
+                    if(ret == DataLogManager.PROCESSED_EVENT()){
+                        return processEvent(dataLogManager.getBuffer());
+                    }else if(ret == DataLogManager.PROCESSED_RECORD()){
+                        return InputStatus.MORE_AVAILABLE;
+                    }
+                }
                 if (checkpointedInputGate.isFinished()) {
                     checkState(
                             checkpointedInputGate.getAvailableFuture().isDone(),

@@ -160,7 +160,7 @@ public class StreamSourceOperatorWatermarksTest {
                 operator.getContainingTask().getStreamStatusMaintainer(),
                 new CollectorOutput<String>(output),
                 operator.getExecutionConfig().getAutoWatermarkInterval(),
-                -1);
+                -1,null);
 
         // periodically emit the watermarks
         // even though we start from 1 the watermark are still
