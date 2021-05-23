@@ -23,6 +23,9 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
     //skip
   }
 
+  //reset seq num for incoming control msgs
+  currentSeq = 0L
+
   private val correlatedSeq = logWriter.storage.getLogs
     .collect {
       case DPCursor(idx) => idx

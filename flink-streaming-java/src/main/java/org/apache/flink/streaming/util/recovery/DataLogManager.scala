@@ -3,7 +3,7 @@ package org.apache.flink.streaming.util.recovery
 
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage.{ChannelOrder, getLogStorage}
+import org.apache.flink.streaming.util.recovery.AbstractLogStorage.{ChannelOrder, UpdateStepCursor, getLogStorage}
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement
 import org.apache.flink.streaming.util.recovery.DataLogManager.{PROCESSED_EVENT, PROCESSED_NOTHING, PROCESSED_RECORD}
@@ -112,6 +112,7 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
     }else{
       recordCount += 1
     }
+    logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
   }
 
   class DataLogManagerInner[T](dataHandler: ThrowingTriConsumer[InputChannelInfo,StreamElement, DataOutput[T], _],
