@@ -18,6 +18,8 @@
 
 package org.apache.flink.client.deployment.application;
 
+import org.apache.commons.lang.NotImplementedException;
+
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.JobID;
@@ -62,6 +64,16 @@ public class WebSubmissionJobClient implements JobClient {
     public CompletableFuture<Void> cancel() {
         throw new FlinkRuntimeException(
                 "Cancelling the job is not supported by the Job Client when in Web Submission.");
+    }
+
+    @Override
+    public CompletableFuture<Void> pause() {
+        throw new NotImplementedException("pause not implemented");
+    }
+
+    @Override
+    public CompletableFuture<Void> resume() {
+        throw new NotImplementedException("resume not implemented");
     }
 
     @Override

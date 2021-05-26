@@ -819,6 +819,29 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
         }
     }
 
+    @Override
+    public CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        System.out.println("TaskExecutor receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        final Task task = taskSlotTable.getTask(executionAttemptID);
+        if(task != null){
+            task.pause();
+        }
+        return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        final Task task = taskSlotTable.getTask(executionAttemptID);
+        if(task != null){
+            task.resume();
+        }
+        return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
     // ----------------------------------------------------------------------
     // Partition lifecycle RPCs
     // ----------------------------------------------------------------------

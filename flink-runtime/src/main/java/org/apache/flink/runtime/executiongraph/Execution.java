@@ -1004,6 +1004,27 @@ public class Execution
         }
     }
 
+    public CompletableFuture<?> sendPauseRPCCall(){
+        System.out.println("Execution receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        final LogicalSlot slot = assignedResource;
+
+        if (slot != null) {
+            final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+            return taskManagerGateway.pauseTask(attemptId, rpcTimeout);
+        }
+        return FutureUtils.completedVoidFuture();
+    }
+
+    public CompletableFuture<?> sendResumeRPCCall(){
+        final LogicalSlot slot = assignedResource;
+
+        if (slot != null) {
+            final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+            return taskManagerGateway.resumeTask(attemptId, rpcTimeout);
+        }
+        return FutureUtils.completedVoidFuture();
+    }
+
     void completeCancelling() {
         completeCancelling(null, null, true);
     }

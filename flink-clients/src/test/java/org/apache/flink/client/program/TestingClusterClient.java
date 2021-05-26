@@ -129,6 +129,16 @@ public class TestingClusterClient<T> implements ClusterClient<T> {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pause(JobID jobId) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(JobID jobId) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<String> cancelWithSavepoint(
             JobID jobId, @Nullable String savepointDirectory) {
         return cancelWithSavepointFunction.apply(jobId, savepointDirectory);

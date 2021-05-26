@@ -89,6 +89,7 @@ import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
 import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DPLogManager;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
+import org.apache.flink.streaming.util.recovery.FutureWrapper;
 import org.apache.flink.streaming.util.recovery.MailResolver;
 import org.apache.flink.streaming.util.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
@@ -261,6 +262,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     protected MailResolver mailResolver;
     protected DataLogManager dataLogManager;
     public DPLogManager dpLogManager;
+    public FutureWrapper isPausedFuture = new FutureWrapper();
     private String logName;
 
     // ------------------------------------------------------------------------
@@ -386,6 +388,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             i++;
         }
         mailResolver.bind("dispatch operator event", x -> operatorChain.dispatchOperatorEvent((OperatorID) x[0], (SerializedValue<OperatorEvent>) x[1]));
+        mailResolver.bind("pause",() ->{
+            mailboxProcessor.isPaused = true;
+            isPausedFuture.reset();
+        });
+        mailResolver.bind("resume", () ->{
+            mailboxProcessor.isPaused = false;
+            isPausedFuture.set();
+        });
         mailResolver.bind("checkpoint", (x) ->{
             latestAsyncCheckpointStartDelayNanos =
                     1_000_000
@@ -399,6 +409,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         dataLogManager = new DataLogManager(writer, stepCursor);
         mailboxProcessor.registerLogManager(dpLogManager);
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
+    }
+
+
+    @Override
+    public void pause() {
+        System.out.println("StreamTask receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        mainMailboxExecutor.execute(() -> {},"pause");
+    }
+
+    @Override
+    public void resume(){
+        mainMailboxExecutor.execute(() -> {}, "resume");
     }
 
     private TimerService createTimerService(String timerThreadName) {

@@ -454,6 +454,16 @@ public class AdaptiveScheduler
     }
 
     @Override
+    public void pause() {
+
+    }
+
+    @Override
+    public void resume() {
+
+    }
+
+    @Override
     public CompletableFuture<JobStatus> getJobTerminationFuture() {
         return jobTerminationFuture;
     }

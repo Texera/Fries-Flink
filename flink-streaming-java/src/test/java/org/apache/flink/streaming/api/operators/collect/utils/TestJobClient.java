@@ -78,6 +78,16 @@ public class TestJobClient implements JobClient, CoordinationRequestGateway {
     }
 
     @Override
+    public CompletableFuture<Void> pause() {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> resume() {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<String> stopWithSavepoint(
             boolean advanceToEndOfEventTime, @Nullable String savepointDirectory) {
         throw new UnsupportedOperationException();

@@ -136,6 +136,16 @@ class StateTrackingMockExecutionGraph implements ExecutionGraph {
     }
 
     @Override
+    public void pause() {
+
+    }
+
+    @Override
+    public void resume() {
+
+    }
+
+    @Override
     public void transitionToRunning() {
         transitionToState(JobStatus.RUNNING);
     }

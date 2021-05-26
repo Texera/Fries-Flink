@@ -59,6 +59,11 @@ public interface RestfulGateway extends RpcGateway {
      */
     CompletableFuture<Acknowledge> cancelJob(JobID jobId, @RpcTimeout Time timeout);
 
+    CompletableFuture<Acknowledge> pauseJob(JobID jobId, @RpcTimeout Time timeout);
+
+    CompletableFuture<Acknowledge> resumeJob(JobID jobId, @RpcTimeout Time timeout);
+
+
     /**
      * Requests the {@link ArchivedExecutionGraph} for the given jobId. If there is no such graph,
      * then the future is completed with a {@link FlinkJobNotFoundException}.

@@ -454,6 +454,17 @@ public class ExecutionVertex
         return exec.getReleaseFuture();
     }
 
+    public CompletableFuture<?> pause(){
+        System.out.println("ExecutionVertex receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        final Execution exec = currentExecution;
+        return exec.sendPauseRPCCall();
+    }
+
+    public CompletableFuture<?> resume(){
+        final Execution exec = currentExecution;
+        return exec.sendResumeRPCCall();
+    }
+
     public CompletableFuture<?> suspend() {
         return currentExecution.suspend();
     }

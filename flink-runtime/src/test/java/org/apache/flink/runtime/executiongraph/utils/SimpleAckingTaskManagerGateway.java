@@ -112,6 +112,20 @@ public class SimpleAckingTaskManagerGateway implements TaskManagerGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<Acknowledge> updatePartitions(
             ExecutionAttemptID executionAttemptID,
             Iterable<PartitionInfo> partitionInfos,

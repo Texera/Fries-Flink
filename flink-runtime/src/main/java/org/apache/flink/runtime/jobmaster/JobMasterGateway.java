@@ -71,6 +71,11 @@ public interface JobMasterGateway
      */
     CompletableFuture<Acknowledge> cancel(@RpcTimeout Time timeout);
 
+    CompletableFuture<Acknowledge> pause(@RpcTimeout Time timeout);
+
+    CompletableFuture<Acknowledge> resume(@RpcTimeout Time timeout);
+
+
     /**
      * Updates the task execution state for a given task.
      *

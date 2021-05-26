@@ -306,6 +306,18 @@ public abstract class SchedulerBase implements SchedulerNG, CheckpointScheduling
         return store;
     }
 
+
+    @Override
+    public void pause() {
+        System.out.println("Scheduler receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        executionGraph.pause();
+    }
+
+    @Override
+    public void resume() {
+        executionGraph.resume();
+    }
+
     /**
      * Compute the {@link VertexParallelismStore} for all given vertices, which will set defaults
      * and ensure that the returned store contains valid parallelisms.

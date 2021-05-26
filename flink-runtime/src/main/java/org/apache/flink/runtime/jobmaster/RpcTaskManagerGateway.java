@@ -67,6 +67,21 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        System.out.println("Task Manager Gateway receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        return taskExecutorGateway.pauseTask(executionAttemptID, timeout);
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return taskExecutorGateway.resumeTask(executionAttemptID, timeout);
+    }
+
+    @Override
     public CompletableFuture<Acknowledge> updatePartitions(
             ExecutionAttemptID executionAttemptID,
             Iterable<PartitionInfo> partitionInfos,

@@ -953,6 +953,21 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         }
     }
 
+    @Override
+    public void pause() {
+        System.out.println("ExecutionGraph receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        for (ExecutionJobVertex ejv : verticesInCreationOrder) {
+            ejv.pause();
+        }
+    }
+
+    @Override
+    public void resume() {
+        for (ExecutionJobVertex ejv : verticesInCreationOrder) {
+            ejv.resume();
+        }
+    }
+
     void failGlobalIfExecutionIsStillRunning(Throwable cause, ExecutionAttemptID failingAttempt) {
         final Execution failedExecution = currentExecutions.get(failingAttempt);
         if (failedExecution != null

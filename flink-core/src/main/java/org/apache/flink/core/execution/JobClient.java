@@ -41,6 +41,11 @@ public interface JobClient {
     /** Cancels the associated job. */
     CompletableFuture<Void> cancel();
 
+    CompletableFuture<Void> pause();
+
+    CompletableFuture<Void> resume();
+
+
     /**
      * Stops the associated job on Flink cluster.
      *

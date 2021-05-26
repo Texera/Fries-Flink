@@ -208,6 +208,16 @@ public class TestingRestfulGateway implements RestfulGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseJob(JobID jobId, Time timeout) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeJob(JobID jobId, Time timeout) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<Acknowledge> shutDownCluster() {
         return clusterShutdownSupplier.get();
     }

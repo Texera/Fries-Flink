@@ -709,6 +709,18 @@ public class MiniCluster implements AutoCloseableAsync {
                 dispatcherGateway -> dispatcherGateway.cancelJob(jobId, rpcTimeout));
     }
 
+    public CompletableFuture<Acknowledge> pauseJob(JobID jobId) {
+        System.out.println("MiniCluster receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        return runDispatcherCommand(
+                dispatcherGateway -> dispatcherGateway.pauseJob(jobId, rpcTimeout));
+    }
+
+
+    public CompletableFuture<Acknowledge> resumeJob(JobID jobId) {
+        return runDispatcherCommand(
+                dispatcherGateway -> dispatcherGateway.resumeJob(jobId, rpcTimeout));
+    }
+
     public CompletableFuture<String> triggerSavepoint(
             JobID jobId, String targetDirectory, boolean cancelJob) {
         return runDispatcherCommand(

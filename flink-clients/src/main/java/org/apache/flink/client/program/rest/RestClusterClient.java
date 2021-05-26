@@ -18,6 +18,8 @@
 
 package org.apache.flink.client.program.rest;
 
+import org.apache.commons.lang.NotImplementedException;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.JobStatus;
@@ -410,6 +412,16 @@ public class RestClusterClient<T> implements ClusterClient<T> {
         CompletableFuture<EmptyResponseBody> responseFuture =
                 sendRequest(JobCancellationHeaders.getInstance(), params);
         return responseFuture.thenApply(ignore -> Acknowledge.get());
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> pause(JobID jobId) {
+        throw new NotImplementedException("pause not implemented");
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(JobID jobId) {
+        throw new NotImplementedException("resume not implemented");
     }
 
     @Override

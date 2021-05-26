@@ -96,6 +96,17 @@ public final class MiniClusterJobClient implements JobClient, CoordinationReques
     }
 
     @Override
+    public CompletableFuture<Void> pause() {
+        System.out.println("MiniClusterJobClient receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        return miniCluster.pauseJob(jobID).thenAccept(result -> {});
+    }
+
+    @Override
+    public CompletableFuture<Void> resume() {
+        return miniCluster.resumeJob(jobID).thenAccept(result -> {});
+    }
+
+    @Override
     public CompletableFuture<String> stopWithSavepoint(
             boolean terminate, @Nullable String savepointDirectory) {
         return miniCluster.stopWithSavepoint(jobID, savepointDirectory, terminate);

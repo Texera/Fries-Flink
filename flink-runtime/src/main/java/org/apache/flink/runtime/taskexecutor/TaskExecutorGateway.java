@@ -23,11 +23,13 @@ import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blob.BlobServer;
 import org.apache.flink.runtime.blob.TransientBlobKey;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
+import org.apache.flink.runtime.checkpoint.CompletedCheckpoint;
 import org.apache.flink.runtime.clusterframework.types.AllocationID;
 import org.apache.flink.runtime.clusterframework.types.ResourceID;
 import org.apache.flink.runtime.clusterframework.types.ResourceProfile;
 import org.apache.flink.runtime.clusterframework.types.SlotID;
 import org.apache.flink.runtime.deployment.TaskDeploymentDescriptor;
+import org.apache.flink.runtime.executiongraph.Execution;
 import org.apache.flink.runtime.executiongraph.ExecutionAttemptID;
 import org.apache.flink.runtime.executiongraph.PartitionInfo;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
@@ -170,6 +172,13 @@ public interface TaskExecutorGateway
      * @return Future acknowledge if the task is successfully canceled
      */
     CompletableFuture<Acknowledge> cancelTask(
+            ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout);
+
+
+    CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout);
+
+    CompletableFuture<Acknowledge> resumeTask(
             ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout);
 
     /**

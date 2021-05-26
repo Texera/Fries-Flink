@@ -71,6 +71,10 @@ public interface SchedulerNG extends AutoCloseableAsync {
 
     void cancel();
 
+    void pause();
+
+    void resume();
+
     CompletableFuture<JobStatus> getJobTerminationFuture();
 
     void handleGlobalFailure(Throwable cause);

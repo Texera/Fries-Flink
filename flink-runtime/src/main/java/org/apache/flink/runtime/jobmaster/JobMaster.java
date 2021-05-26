@@ -419,6 +419,20 @@ public class JobMaster extends PermanentlyFencedRpcEndpoint<JobMasterId>
         return CompletableFuture.completedFuture(Acknowledge.get());
     }
 
+    @Override
+    public CompletableFuture<Acknowledge> pause(Time timeout) {
+        System.out.println("JobMaster receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        schedulerNG.pause();
+        return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(Time timeout) {
+        schedulerNG.resume();
+        return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
+
     /**
      * Updates the task execution state for a given task.
      *

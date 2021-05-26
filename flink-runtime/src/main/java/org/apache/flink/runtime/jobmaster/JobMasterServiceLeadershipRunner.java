@@ -200,6 +200,39 @@ public class JobMasterServiceLeadershipRunner implements JobManagerRunner, Leade
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pause(Time timeout) {
+        System.out.println("JobMaster Runner receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        synchronized (lock) {
+            hasCurrentLeaderBeenCancelled = true;
+            return getJobMasterGateway()
+                    .thenCompose(jobMasterGateway -> jobMasterGateway.pause(timeout))
+                    .exceptionally(
+                            e -> {
+                                throw new CompletionException(
+                                        new FlinkException(
+                                                "Pause failed.",
+                                                ExceptionUtils.stripCompletionException(e)));
+                            });
+        }
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(Time timeout) {
+        synchronized (lock) {
+            hasCurrentLeaderBeenCancelled = true;
+            return getJobMasterGateway()
+                    .thenCompose(jobMasterGateway -> jobMasterGateway.resume(timeout))
+                    .exceptionally(
+                            e -> {
+                                throw new CompletionException(
+                                        new FlinkException(
+                                                "Resume failed.",
+                                                ExceptionUtils.stripCompletionException(e)));
+                            });
+        }
+    }
+
+    @Override
     public CompletableFuture<JobStatus> requestJobStatus(Time timeout) {
         return requestJob(timeout)
                 .thenApply(

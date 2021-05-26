@@ -97,7 +97,7 @@ public class StreamSourceContextIdleDetectionTests {
                         mockStreamStatusMaintainer,
                         new CollectorOutput<String>(output),
                         0,
-                        idleTimeout,null);
+                        idleTimeout,null, null);
 
         // -------------------------- begin test scenario --------------------------
 
@@ -189,7 +189,7 @@ public class StreamSourceContextIdleDetectionTests {
                         mockStreamStatusMaintainer,
                         new CollectorOutput<String>(output),
                         watermarkInterval,
-                        idleTimeout, null);
+                        idleTimeout, null, null);
 
         // -------------------------- begin test scenario --------------------------
 

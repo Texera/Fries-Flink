@@ -73,7 +73,7 @@ public class AllroundMiniClusterTest extends TestLogger {
                 new String[] {
                     "--environment.parallelism", "2",
                     "--state_backend.checkpoint_directory", checkpointDir.toURI().toString(),
-                    "--test.simulate_failure", "true",
+                    "--test.simulate_failure", "false",
                     "--test.simulate_failure.max_failures", String.valueOf(1),
                     "--test.simulate_failure.num_records", "100"
                 });

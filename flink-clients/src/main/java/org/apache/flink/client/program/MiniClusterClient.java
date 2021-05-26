@@ -84,6 +84,17 @@ public class MiniClusterClient implements ClusterClient<MiniClusterClient.MiniCl
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pause(JobID jobId) {
+        System.out.println("MiniClusterClient receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        return miniCluster.pauseJob(jobId);
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(JobID jobId) {
+        return miniCluster.resumeJob(jobId);
+    }
+
+    @Override
     public CompletableFuture<String> cancelWithSavepoint(
             JobID jobId, @Nullable String savepointDirectory) {
         return miniCluster.triggerSavepoint(jobId, savepointDirectory, true);

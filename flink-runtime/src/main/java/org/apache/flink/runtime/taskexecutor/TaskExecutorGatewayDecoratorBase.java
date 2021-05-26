@@ -150,6 +150,20 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return originalGateway.pauseTask(executionAttemptID, timeout);
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return originalGateway.resumeTask(executionAttemptID, timeout);
+    }
+
+    @Override
     public void heartbeatFromJobManager(
             ResourceID heartbeatOrigin, AllocatedSlotReport allocatedSlotReport) {
         originalGateway.heartbeatFromJobManager(heartbeatOrigin, allocatedSlotReport);

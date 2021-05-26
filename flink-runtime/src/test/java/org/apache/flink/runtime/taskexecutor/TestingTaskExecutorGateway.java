@@ -238,6 +238,20 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout) {
+        return null;
+    }
+
+    @Override
     public void heartbeatFromJobManager(
             ResourceID heartbeatOrigin, AllocatedSlotReport allocatedSlotReport) {
         heartbeatJobManagerConsumer.accept(heartbeatOrigin, allocatedSlotReport);

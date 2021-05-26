@@ -72,6 +72,11 @@ public interface JobManagerRunner extends AutoCloseableAsync {
      */
     CompletableFuture<Acknowledge> cancel(Time timeout);
 
+    CompletableFuture<Acknowledge> pause(Time timeout);
+
+    CompletableFuture<Acknowledge> resume(Time timeout);
+
+
     /**
      * Requests the current job status.
      *

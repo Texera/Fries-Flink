@@ -113,6 +113,8 @@ public class MailboxProcessor implements Closeable {
 
     private DPLogManager dpLogManager;
 
+    public boolean isPaused = false;
+
     @VisibleForTesting
     public MailboxProcessor() {
         this(MailboxDefaultAction.Controller::suspendDefaultAction);
@@ -235,7 +237,7 @@ public class MailboxProcessor implements Closeable {
                 }
             }
             processMail(localMailbox, false);
-            if (isNextLoopPossible()) {
+            if (isNextLoopPossible() && !isPaused) {
                 mailboxDefaultAction.runDefaultAction(
                         defaultActionContext); // lock is acquired inside default action as needed
             }
@@ -259,7 +261,7 @@ public class MailboxProcessor implements Closeable {
         if (processMail(mailbox, true)) {
             return true;
         }
-        if (!isDefaultActionUnavailable() && isNextLoopPossible()) {
+        if (!isDefaultActionUnavailable() && isNextLoopPossible() && !isPaused) {
             mailboxDefaultAction.runDefaultAction(new MailboxController(this));
             return true;
         }

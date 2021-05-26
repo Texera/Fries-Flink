@@ -54,6 +54,16 @@ public class TestingJobClient implements JobClient {
     }
 
     @Override
+    public CompletableFuture<Void> pause() {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Void> resume() {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<String> stopWithSavepoint(
             boolean advanceToEndOfEventTime, @Nullable String savepointDirectory) {
         return CompletableFuture.completedFuture("null");

@@ -64,6 +64,10 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
      */
     CompletableFuture<Acknowledge> cancelTask(ExecutionAttemptID executionAttemptID, Time timeout);
 
+    CompletableFuture<Acknowledge> pauseTask(ExecutionAttemptID executionAttemptID, Time timeout);
+
+    CompletableFuture<Acknowledge> resumeTask(ExecutionAttemptID executionAttemptID, Time timeout);
+
     /**
      * Update the task where the given partitions can be found.
      *

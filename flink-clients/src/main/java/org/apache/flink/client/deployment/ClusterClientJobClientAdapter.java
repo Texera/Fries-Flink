@@ -83,6 +83,21 @@ public class ClusterClientJobClientAdapter<ClusterID>
     }
 
     @Override
+    public CompletableFuture<Void> pause() {
+        System.out.println("ClusterClientJobClientAdapter receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        return bridgeClientRequest(
+                clusterClientProvider,
+                (clusterClient -> clusterClient.pause(jobID).thenApply((ignored) -> null)));
+    }
+
+    @Override
+    public CompletableFuture<Void> resume() {
+        return bridgeClientRequest(
+                clusterClientProvider,
+                (clusterClient -> clusterClient.resume(jobID).thenApply((ignored) -> null)));
+    }
+
+    @Override
     public CompletableFuture<String> stopWithSavepoint(
             boolean advanceToEndOfEventTime, @Nullable String savepointDirectory) {
         return bridgeClientRequest(

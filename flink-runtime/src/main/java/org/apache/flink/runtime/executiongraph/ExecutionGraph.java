@@ -163,6 +163,10 @@ public interface ExecutionGraph extends AccessExecutionGraph {
      */
     void suspend(Throwable suspensionCause);
 
+    void pause();
+
+    void resume();
+
     void failJob(Throwable cause, long timestamp);
 
     /**

@@ -113,6 +113,14 @@ public abstract class AbstractInvokable {
         return CompletableFuture.completedFuture(null);
     }
 
+    public void pause() {
+        //do nothing
+    }
+
+    public void resume(){
+        //do nothing
+    }
+
     /**
      * Sets whether the thread that executes the {@link #invoke()} method should be interrupted
      * during cancellation. This method sets the flag for both the initial interrupt, as well as for

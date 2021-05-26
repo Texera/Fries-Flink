@@ -40,6 +40,7 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
       return
     }
     orderingManager.handleMessage(currentSender, currentSeq, mail)
+    println(s"${logWriter.storage.name} receives ${mail.descriptionFormat}")
     currentSeq += 1
     if(stepCursor.isRecoveryCompleted){
       while(controlQueue.nonEmpty){

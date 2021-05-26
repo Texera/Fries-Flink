@@ -316,6 +316,16 @@ public class TestingJobMasterGateway implements JobMasterGateway {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pause(Time timeout) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(Time timeout) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<Acknowledge> updateTaskExecutionState(
             TaskExecutionState taskExecutionState) {
         return updateTaskExecutionStateFunction.apply(taskExecutionState);

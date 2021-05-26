@@ -529,6 +529,31 @@ public abstract class Dispatcher extends PermanentlyFencedRpcEndpoint<Dispatcher
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pauseJob(JobID jobId, Time timeout) {
+        System.out.println("Dispatcher receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        Optional<JobManagerRunner> maybeJob = getJobManagerRunner(jobId);
+        return maybeJob.map(job -> job.pause(timeout))
+                .orElseGet(
+                        () -> {
+                            log.debug("Dispatcher is unable to pause job {}: not found", jobId);
+                            return FutureUtils.completedExceptionally(
+                                    new FlinkJobNotFoundException(jobId));
+                        });
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resumeJob(JobID jobId, Time timeout) {
+        Optional<JobManagerRunner> maybeJob = getJobManagerRunner(jobId);
+        return maybeJob.map(job -> job.resume(timeout))
+                .orElseGet(
+                        () -> {
+                            log.debug("Dispatcher is unable to resume job {}: not found", jobId);
+                            return FutureUtils.completedExceptionally(
+                                    new FlinkJobNotFoundException(jobId));
+                        });
+    }
+
+    @Override
     public CompletableFuture<ClusterOverview> requestClusterOverview(Time timeout) {
         CompletableFuture<ResourceOverview> taskManagerOverviewFuture =
                 runResourceManagerCommand(

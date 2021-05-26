@@ -86,6 +86,16 @@ public class TestingJobManagerRunner implements JobManagerRunner {
     }
 
     @Override
+    public CompletableFuture<Acknowledge> pause(Time timeout) {
+        return null;
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> resume(Time timeout) {
+        return null;
+    }
+
+    @Override
     public CompletableFuture<JobStatus> requestJobStatus(Time timeout) {
         return CompletableFuture.completedFuture(jobStatus);
     }

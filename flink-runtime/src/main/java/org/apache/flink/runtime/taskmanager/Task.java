@@ -101,6 +101,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -935,6 +936,20 @@ public class Task
                         executionId,
                         t);
             }
+        }
+    }
+
+
+    public void pause(){
+        System.out.println("Task receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        if(invokable != null) {
+            invokable.pause();
+        }
+    }
+
+    public void resume(){
+        if(invokable != null) {
+            invokable.resume();
         }
     }
 

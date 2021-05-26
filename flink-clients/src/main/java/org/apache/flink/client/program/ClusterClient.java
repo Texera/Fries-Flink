@@ -130,6 +130,10 @@ public interface ClusterClient<T> extends AutoCloseable {
      */
     CompletableFuture<Acknowledge> cancel(JobID jobId);
 
+    CompletableFuture<Acknowledge> pause(JobID jobId);
+
+    CompletableFuture<Acknowledge> resume(JobID jobId);
+
     /**
      * Cancels a job identified by the job id and triggers a savepoint.
      *

@@ -26,6 +26,7 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.core.execution.JobClient;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -51,12 +52,14 @@ public class JoinWithStaticExample {
 
         setupEnvironment(env, pt);
 
+        env.enableCheckpointing(100000000);
+
         // a streaming source that keeps running indefinitely
         DataStream<Long> dynamicSource = env.addSource(new SourceFunction<Long>() {
             @Override
             public void run(SourceContext<Long> ctx) throws Exception {
                 int count = 0;
-                while (count< 1300) {
+                while (count< 2000) {
                     count++;
                     Thread.sleep(10);
                     ctx.collect((long)count%3);
@@ -107,7 +110,12 @@ public class JoinWithStaticExample {
                 .print();
 
         // execute program
-        env.execute("Join Example");
+        JobClient  jobClient = env.executeAsync("Join Example");
+        Thread.sleep(5000);
+        jobClient.pause();
+        Thread.sleep(20000);
+        jobClient.resume();
+        jobClient.getJobExecutionResult().get();
     }
 
 

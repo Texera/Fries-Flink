@@ -253,6 +253,16 @@ public class RemoteStreamEnvironmentTest extends TestLogger {
         }
 
         @Override
+        public CompletableFuture<Acknowledge> pause(JobID jobId) {
+            return null;
+        }
+
+        @Override
+        public CompletableFuture<Acknowledge> resume(JobID jobId) {
+            return null;
+        }
+
+        @Override
         public CompletableFuture<String> cancelWithSavepoint(
                 JobID jobId, @Nullable String savepointDirectory) {
             return null;

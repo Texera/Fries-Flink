@@ -434,6 +434,19 @@ public class ExecutionJobVertex
         }
     }
 
+    public void pause(){
+        System.out.println("ExecutionJobVertex receives pause! current thread = "+Thread.currentThread().getName()+" "+Thread.currentThread().getId());
+        for(ExecutionVertex ev : getTaskVertices()){
+            ev.pause();
+        }
+    }
+
+    public void resume(){
+        for(ExecutionVertex ev : getTaskVertices()){
+            ev.resume();
+        }
+    }
+
     /**
      * Cancels all currently running vertex executions.
      *
