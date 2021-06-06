@@ -1,6 +1,8 @@
 package org.apache.flink.streaming.util.recovery
 
-class StepCursor(target:Long) {
+import org.apache.flink.streaming.util.recovery.AbstractLogStorage.UpdateStepCursor
+
+class StepCursor(target:Long, logWriter: AsyncLogWriter) {
   private var _cursor = 0L
   private var _callback:() => Unit = _
 
@@ -12,6 +14,7 @@ class StepCursor(target:Long) {
 
   def advance(): Unit ={
     _cursor+=1
+    logWriter.addLogRecord(UpdateStepCursor(_cursor))
     if(_cursor == target && _callback != null){
       _callback()
     }

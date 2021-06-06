@@ -20,6 +20,7 @@ package org.apache.flink.state.api.runtime;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.TimerService;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +54,11 @@ public final class NeverFireProcessingTimeService implements TimerService {
     public ScheduledFuture<?> scheduleWithFixedDelay(
             ProcessingTimeCallback callback, long initialDelay, long period) {
         return FUTURE;
+    }
+
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        //do nothing since it never fire
     }
 
     @Override

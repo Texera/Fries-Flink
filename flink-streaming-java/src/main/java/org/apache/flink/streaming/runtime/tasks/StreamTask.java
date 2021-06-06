@@ -17,6 +17,8 @@
 
 package org.apache.flink.streaming.runtime.tasks;
 
+import com.google.common.collect.HashBiMap;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.TaskInfo;
@@ -107,6 +109,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -264,6 +267,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     public DPLogManager dpLogManager;
     public FutureWrapper isPausedFuture = new FutureWrapper();
     private String logName;
+    private HashBiMap<Integer,ProcessingTimeCallback> hackCallbackMap = HashBiMap.create();
 
     // ------------------------------------------------------------------------
 
@@ -344,7 +348,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         AbstractLogStorage storage = AbstractLogStorage.getLogStorage(logName);
         AsyncLogWriter writer = new AsyncLogWriter(storage);
-        StepCursor stepCursor = new StepCursor(storage.getStepCursor());
+        StepCursor stepCursor = new StepCursor(storage.getStepCursor(), writer);
         this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor, environment.getTaskInfo().getTaskNameWithSubtasks());
         this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
         this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
@@ -373,7 +377,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         } else {
             this.timerService = timerService;
         }
-
+        this.timerService.registerLogWriter(Thread.currentThread().getId(), writer);
         this.systemTimerService = createTimerService("System Time Trigger for " + getName());
         this.channelIOExecutor =
                 Executors.newSingleThreadExecutor(
@@ -381,10 +385,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
         injectChannelStateWriterIntoChannels();
         mailResolver = new MailResolver();
-        mailResolver.bind("Timer callback",x -> invokeProcessingTimeCallback((ProcessingTimeCallback)x[0],(long)x[1]));
+        mailResolver.bind("Timer callback",x ->{
+                //System.out.println("timer callback thread: "+Thread.currentThread().getId());
+                invokeProcessingTimeCallback(hackCallbackMap.get((int)x[0]),(long)x[1]);});
         int i = 0;
         for (InputGate inputGate : getEnvironment().getAllInputGates()) {
-            mailResolver.bind("Input gate request partitions"+i, inputGate::requestPartitions);
+            mailResolver.bind("Input gate request partitions"+i, () -> {inputGate.requestPartitions();});
             i++;
         }
         mailResolver.bind("dispatch operator event", x -> operatorChain.dispatchOperatorEvent((OperatorID) x[0], (SerializedValue<OperatorEvent>) x[1]));
@@ -396,6 +402,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             mailboxProcessor.isPaused = false;
             isPausedFuture.set();
         });
+
+        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
+
+        mailResolver.bind("checkpoint aborted", (x)-> {
+            resetSynchronousSavepointId((long)x[0], false);
+            subtaskCheckpointCoordinator.notifyCheckpointAborted(
+                     (long)x[0], operatorChain, this::isRunning);});
+
         mailResolver.bind("checkpoint", (x) ->{
             latestAsyncCheckpointStartDelayNanos =
                     1_000_000
@@ -408,6 +422,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
         dataLogManager = new DataLogManager(writer, stepCursor);
         mailboxProcessor.registerLogManager(dpLogManager);
+        dataLogManager.enable();
+        System.out.println("started "+logName+" at "+System.currentTimeMillis());
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
 
@@ -616,6 +632,15 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         // -------- Invoke --------
         LOG.debug("Invoking {}", getName());
 
+//        System.out.println(logName + " all input gate start to consume states!");
+//
+//        IndexedInputGate[] inputGates = getEnvironment().getAllInputGates();
+//
+//        for (InputGate inputGate : inputGates) {
+//            inputGate.getStateConsumedFuture().get();
+//        }
+//        System.out.println(logName + " all input gate consumed states!");
+
         // we need to make sure that any triggers scheduled in open() cannot be
         // executed before all operators are opened
         CompletableFuture<Void> allGatesRecoveredFuture = actionExecutor.call(this::restoreGates);
@@ -628,6 +653,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         checkState(
                 allGatesRecoveredFuture.isDone(),
                 "Mailbox loop interrupted before recovery was finished.");
+
+        IndexedInputGate[] inputGates = getEnvironment().getAllInputGates();
+        int i = 0;
+        for (InputGate inputGate : inputGates) {
+            final int fi = i;
+            mainMailboxExecutor.execute(
+                    inputGate::requestPartitions,
+                    "Input gate request partitions" + fi);
+            i++;
+        }
 
         isRunning = true;
     }
@@ -652,21 +687,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 });
 
         List<CompletableFuture<?>> recoveredFutures = new ArrayList<>(inputGates.length);
-        int i = 0;
         for (InputGate inputGate : inputGates) {
-            final int fi = i;
             recoveredFutures.add(inputGate.getStateConsumedFuture());
-            inputGate
-                    .getStateConsumedFuture()
-                    .thenRun(
-                            () ->
-                                    mainMailboxExecutor.execute(
-                                            inputGate::requestPartitions,
-                                            "Input gate request partitions"+fi));
-            i++;
         }
 
-        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0]))
+        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0])).thenRun(() -> dpLogManager.enable())
                 .thenRun(mailboxProcessor::suspend);
     }
 
@@ -693,8 +718,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         // final check to exit early before starting to run
         ensureNotCanceled();
 
-        dpLogManager.enable();
-        dataLogManager.enable();
+
         // let the task do its work
         runMailboxLoop();
 
@@ -1186,7 +1210,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     public Future<Void> notifyCheckpointCompleteAsync(long checkpointId) {
         return notifyCheckpointOperation(
                 () -> notifyCheckpointComplete(checkpointId),
-                String.format("checkpoint %d complete", checkpointId));
+                "checkpoint complete", checkpointId);
     }
 
     @Override
@@ -1197,11 +1221,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                     subtaskCheckpointCoordinator.notifyCheckpointAborted(
                             checkpointId, operatorChain, this::isRunning);
                 },
-                String.format("checkpoint %d aborted", checkpointId));
+                "checkpoint aborted", checkpointId);
     }
 
     private Future<Void> notifyCheckpointOperation(
-            RunnableWithException runnable, String description) {
+            RunnableWithException runnable, String description, Object... params) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         mailboxProcessor
                 .getMailboxExecutor(TaskMailbox.MAX_PRIORITY)
@@ -1215,7 +1239,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                             }
                             result.complete(null);
                         },
-                        description);
+                        description, params);
         return result;
     }
 
@@ -1463,11 +1487,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     @VisibleForTesting
     ProcessingTimeCallback deferCallbackToMailbox(
             MailboxExecutor mailboxExecutor, ProcessingTimeCallback callback) {
+        int key;
+        if(hackCallbackMap.containsValue(callback)){
+            key = hackCallbackMap.inverse().get(callback);
+        }else{
+            key = hackCallbackMap.size();
+            hackCallbackMap.put(key,callback);
+        }
         return timestamp -> {
             mailboxExecutor.execute(
                     () -> invokeProcessingTimeCallback(callback, timestamp),
                     "Timer callback",
-                    callback,
+                    key,
                     timestamp);
         };
     }

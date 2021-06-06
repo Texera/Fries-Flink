@@ -20,12 +20,19 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
+import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Queue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
@@ -60,6 +67,9 @@ public class SystemProcessingTimeService implements TimerService {
 
     private final CompletableFuture<Void> quiesceCompletedFuture;
 
+    private HashMap<Long, Queue<Long>> outputQueues = new HashMap<>();
+    private HashMap<Long, AsyncLogWriter> writers = new HashMap<>();
+
     @VisibleForTesting
     SystemProcessingTimeService(ExceptionHandler exceptionHandler) {
         this(exceptionHandler, null);
@@ -87,7 +97,15 @@ public class SystemProcessingTimeService implements TimerService {
 
     @Override
     public long getCurrentProcessingTime() {
-        return System.currentTimeMillis();
+        long id = Thread.currentThread().getId();
+        if(outputQueues.get(id).isEmpty()){
+            long res = System.currentTimeMillis();
+            writers.get(id).addLogRecord(new AbstractLogStorage.TimerOutput(res));
+            return res;
+        }else{
+            Long res = outputQueues.get(id).poll();
+            return res == null? 0: res;
+        }
     }
 
     /**
@@ -169,6 +187,16 @@ public class SystemProcessingTimeService implements TimerService {
     @VisibleForTesting
     boolean isAlive() {
         return status.get() == STATUS_ALIVE;
+    }
+
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        writers.put(id, writer);
+        Queue<Long> queue = new ArrayDeque<Long>();
+        for(long l: writer.storage().getTimerOutputs()){
+            queue.add(l);
+        }
+        outputQueues.put(id,queue);
     }
 
     @Override

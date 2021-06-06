@@ -410,7 +410,7 @@ public class StreamSourceContexts {
             if(dpLogManager!=null) {
                 this.dpLogManager = dpLogManager;
             }else{
-                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L));
+                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L, null));
             }
             this.isPausedFuture = isPausedFuture;
             scheduleNextIdleDetectionTask();
@@ -434,7 +434,7 @@ public class StreamSourceContexts {
             synchronized (dpLogManager.stepCursor()) {
                 synchronized (checkpointLock) {
                     dpLogManager.stepCursor().advance();
-                    System.out.println("emit tuple: "+element+" when step = "+ dpLogManager.stepCursor().getCursor());
+                    //System.out.println("emit tuple: "+element+" when step = "+ dpLogManager.stepCursor().getCursor());
                     streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
                     if (nextCheck != null) {
                         this.failOnNextCheck = false;
@@ -463,9 +463,9 @@ public class StreamSourceContexts {
             synchronized (dpLogManager.stepCursor()) {
                 synchronized (checkpointLock) {
                     dpLogManager.stepCursor().advance();
-                    System.out.println("emit tuple: " + element + " when step = " + dpLogManager
-                            .stepCursor()
-                            .getCursor());
+                    //System.out.println("emit tuple: " + element + " when step = " + dpLogManager
+                    //        .stepCursor()
+                    //        .getCursor());
                     streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
                     if (nextCheck != null) {
                         this.failOnNextCheck = false;

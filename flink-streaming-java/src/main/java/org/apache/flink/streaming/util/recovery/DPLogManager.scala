@@ -11,7 +11,7 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
   val currentSender = "anywhere"
   var currentSeq = 0L
   val orderingManager = new FIFOManager[Mail, String]((s, m) => {
-    controlQueue.enqueue(m)
+      controlQueue.enqueue(m)
   })
 
   // For recovery, only need to replay control messages, and then it's done
@@ -35,19 +35,19 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
 
   def inputControl(mail:Mail): Unit ={
     if(!mailResolver.canHandle(mail.descriptionFormat)){
-      println(s"${logWriter.storage.name} running ${mail.descriptionFormat} directly")
+     // println(s"${logWriter.storage.name} running ${mail.descriptionFormat} directly")
       mail.run()
       return
     }
     orderingManager.handleMessage(currentSender, currentSeq, mail)
-    println(s"${logWriter.storage.name} receives ${mail.descriptionFormat}")
+    //println(s"${logWriter.storage.name} receives ${mail.descriptionFormat}")
     currentSeq += 1
     if(stepCursor.isRecoveryCompleted){
       while(controlQueue.nonEmpty){
         val mail = controlQueue.dequeue()
         stepCursor.advance()
         persistCurrentControl(mail)
-        println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+        //println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
         mailResolver.call(mail)
       }
     }
@@ -57,7 +57,7 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
     while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.getCursor+1){
       correlatedSeq.dequeue()
       val mail = controlQueue.dequeue()
-      println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+      //println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
       mailResolver.call(mail)
       stepCursor.advance()
     }

@@ -24,6 +24,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
           val buffer = new util.ArrayList[LogRecord]()
           while (!isEnded) {
             logRecordQueue.drainTo(buffer)
+            //if(storage.name == "exampleJob-0f02-0")System.out.println("drained = "+buffer.size())
             var start = 0L
             if (buffer.isEmpty) {
               // instead of using Thread.sleep(200),
@@ -48,6 +49,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
               //println(s"writing ${buffer.size} logs at a time")
               buffer.clear()
             }
+            //if(storage.name == "exampleJob-0f02-0") System.out.println("buffer size = "+logRecordQueue.size())
           }
           storage.release()
         } catch {
@@ -77,6 +79,8 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
           cursorUpdated = true
           persistedStepCursor = cursor
         }
+      case t:TimerOutput =>
+        storage.write(t)
       case ShutdownWriter =>
       //skip
     }

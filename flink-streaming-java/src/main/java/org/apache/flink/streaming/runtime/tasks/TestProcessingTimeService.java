@@ -18,6 +18,7 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Comparator;
@@ -127,6 +128,11 @@ public class TestProcessingTimeService implements TimerService {
             ProcessingTimeCallback callback, long initialDelay, long period) {
         // for all testing purposed, there is no difference between the fixed rate and fixed delay
         return scheduleAtFixedRate(callback, initialDelay, period);
+    }
+
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        //do nothing
     }
 
     @Override

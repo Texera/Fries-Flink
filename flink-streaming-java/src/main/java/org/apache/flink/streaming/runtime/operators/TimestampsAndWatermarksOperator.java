@@ -32,6 +32,8 @@ import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 
+import java.io.Serializable;
+
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
 /**
@@ -46,7 +48,7 @@ import static org.apache.flink.util.Preconditions.checkNotNull;
  * @param <T> The type of the input elements
  */
 public class TimestampsAndWatermarksOperator<T> extends AbstractStreamOperator<T>
-        implements OneInputStreamOperator<T, T>, ProcessingTimeCallback {
+        implements OneInputStreamOperator<T, T>, ProcessingTimeCallback, Serializable {
 
     private static final long serialVersionUID = 1L;
 

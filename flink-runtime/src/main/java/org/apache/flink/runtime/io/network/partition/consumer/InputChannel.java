@@ -53,7 +53,7 @@ public abstract class InputChannel {
 
     protected final ResultPartitionID partitionId;
 
-    protected final SingleInputGate inputGate;
+    public final SingleInputGate inputGate;
 
     // - Asynchronous error notification --------------------------------------
 

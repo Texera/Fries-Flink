@@ -39,7 +39,8 @@ public class RebalancePartitioner<T> extends StreamPartitioner<T> {
     public void setup(int numberOfChannels) {
         super.setup(numberOfChannels);
 
-        nextChannelToSendTo = ThreadLocalRandom.current().nextInt(numberOfChannels);
+        //nextChannelToSendTo = ThreadLocalRandom.current().nextInt(numberOfChannels); Evil!!!!
+        nextChannelToSendTo = 0;
     }
 
     @Override

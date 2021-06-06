@@ -25,6 +25,8 @@ import org.apache.flink.runtime.io.network.buffer.BufferBuilder;
 import org.apache.flink.runtime.io.network.buffer.BufferCompressor;
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer;
 import org.apache.flink.runtime.io.network.buffer.BufferPool;
+import org.apache.flink.runtime.io.network.partition.consumer.LocalInputChannel;
+import org.apache.flink.runtime.io.network.partition.consumer.SingleInputGate;
 import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.util.function.SupplierWithException;
@@ -203,6 +205,8 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
 
         ResultSubpartition subpartition = subpartitions[subpartitionIndex];
         ResultSubpartitionView readView = subpartition.createReadView(availabilityListener);
+
+        //System.out.println("subpartitionIndex = "+subpartitionIndex+" for "+((LocalInputChannel)availabilityListener).inputGate.getOwningTaskName());
 
         LOG.debug("Created {}", readView);
 

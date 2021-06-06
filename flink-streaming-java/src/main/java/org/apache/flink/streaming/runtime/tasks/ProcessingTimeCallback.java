@@ -20,13 +20,15 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
 
+import java.io.Serializable;
+
 /**
  * Interface for processing-time callbacks that can be registered at a {@link
  * ProcessingTimeService}.
  */
 @Internal
 @FunctionalInterface
-public interface ProcessingTimeCallback {
+public interface ProcessingTimeCallback extends Serializable {
 
     /**
      * This method is invoked with the timestamp for which the trigger was scheduled.

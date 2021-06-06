@@ -26,6 +26,8 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
   private var recordCount = 0
   private var lastBuffer:BufferOrEvent = _
 
+  def getName:String = logWriter.storage.name
+
   logWriter.storage.getLogs.foreach {
     case fs: ChannelOrder =>
       if(lastGate == -1){
@@ -137,7 +139,7 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
 
   def preprocessInput(token:Int, channel:InputChannelInfo): Unit ={
     if(lastGate != token || lastChannel != channel){
-      println(s"${logWriter.storage.name} pushing log record: ${ChannelOrder(token, channel, recordCount)}")
+      //println(s"${logWriter.storage.name} pushing log record: ${ChannelOrder(token, channel, recordCount)}")
       logWriter.addLogRecord(ChannelOrder(token, channel, recordCount))
       lastGate = token
       lastChannel = channel
@@ -151,17 +153,15 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
                                eventHandler: ThrowingConsumer[BufferOrEvent, _]){
 
     def inputDataRecord(channel:InputChannelInfo, elem:StreamElement, output: DataOutput[T]): Unit ={
-      println(s"${logWriter.storage.name} receive data = $elem when step = ${stepCursor.getCursor} from $channel")
+      //println(s"${logWriter.storage.name} process data = $elem when step = ${stepCursor.getCursor} from $channel")
       dataHandler.accept(channel, elem, output)
       stepCursor.advance()
-      logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
     }
 
     def inputEvent(channel: InputChannelInfo, elem:BufferOrEvent): Unit ={
-      println(s"${logWriter.storage.name} receive event = $elem when step = ${stepCursor.getCursor} from $channel")
+      //println(s"${logWriter.storage.name} process event = $elem when step = ${stepCursor.getCursor} from $channel")
       eventHandler.accept(elem)
       stepCursor.advance()
-      logWriter.addLogRecord(UpdateStepCursor(stepCursor.getCursor))
     }
   }
 

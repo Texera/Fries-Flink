@@ -65,6 +65,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
   private lazy val output = new ByteArrayWriter(getOutputStream)
 
   private val loadedLogs = mutable.ArrayBuffer.empty[LogRecord]
+  private val timerOutputs = mutable.ArrayBuffer.empty[Long]
   private var stepCursor:Long = 0L
 
   override def getStepCursor: Long = {
@@ -72,6 +73,13 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
       getLogs
     }
     stepCursor
+  }
+
+  override def getTimerOutputs: Array[Long] = {
+    if(loadedLogs.isEmpty){
+      getLogs
+    }
+    timerOutputs.toArray
   }
 
   override def getLogs: Iterable[LogRecord] = {
@@ -98,6 +106,8 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
               loadedLogs.append(ctrl)
             case payload: UpdateStepCursor =>
               stepCursor = payload.step
+            case TimerOutput(time) =>
+              timerOutputs.append(time)
             case other =>
               throw new RuntimeException(
                 "cannot deserialize log: " + (binary.map(_.toChar)).mkString

@@ -116,7 +116,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
-                    //System.out.println("receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
+                    //System.out.println(dataLogManager.getName()+" receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
                     if(dataLogManager.isEnabled()){
                         int ret;
                         synchronized (dataLogManager.stepCursor()) {
@@ -146,7 +146,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 if (bufferOrEvent.get().isBuffer()) {
                     processBuffer(bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get().getBuffer());
                 } else {
-                    //System.out.println("receive event = "+bufferOrEvent.get());
+                    //System.out.println(dataLogManager.getName()+" receive event = "+bufferOrEvent.get());
                     if(dataLogManager.isEnabled()){
                         int ret;
                         synchronized (dataLogManager.stepCursor()){

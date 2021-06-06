@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.io.network.api.writer;
 
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.plugable.SerializationDelegate;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -51,7 +52,9 @@ public final class ChannelSelectorRecordWriter<T extends IOReadableWritable>
 
     @Override
     public void emit(T record) throws IOException {
-        emit(record, channelSelector.selectChannel(record));
+        int result = channelSelector.selectChannel(record);
+        //System.out.println(Thread.currentThread().getName()+" push record "+((SerializationDelegate<?>)record).getInstance()+" with selection = "+result);
+        emit(record, result);
     }
 
     @Override

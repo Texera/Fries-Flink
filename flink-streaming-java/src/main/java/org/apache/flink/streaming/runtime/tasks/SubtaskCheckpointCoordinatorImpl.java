@@ -316,7 +316,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             if (takeSnapshotSync(
                     snapshotFutures, metadata, metrics, options, operatorChain, isRunning)) {
                 finishAndReportAsync(snapshotFutures, metadata, metrics, isRunning);
-                System.out.println(logName+" checkpoint progress: fully completed");
+                //System.out.println(logName+" checkpoint progress: fully completed");
             } else {
                 cleanup(snapshotFutures, metadata, metrics, new Exception("Checkpoint declined"));
             }
