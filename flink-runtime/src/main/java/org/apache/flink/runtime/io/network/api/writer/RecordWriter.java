@@ -24,6 +24,8 @@ import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;

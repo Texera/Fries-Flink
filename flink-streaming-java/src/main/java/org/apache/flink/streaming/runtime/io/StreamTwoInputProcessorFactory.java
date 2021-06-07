@@ -45,7 +45,6 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
 import org.apache.flink.util.function.ThrowingConsumer;
 

@@ -46,7 +46,10 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterBuilder;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
+import org.apache.flink.runtime.io.network.partition.BufferWritingResultPartition;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
+import org.apache.flink.runtime.io.network.partition.PipelinedSubpartition;
+import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.OperatorID;
@@ -56,6 +59,7 @@ import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.runtime.security.FlinkSecurityManager;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageLoader;
@@ -87,13 +91,13 @@ import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxExecutorFactory;
 import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxProcessor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailboxImpl;
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.AbstractLogStorage;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DPLogManager;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
 import org.apache.flink.streaming.util.recovery.FutureWrapper;
 import org.apache.flink.streaming.util.recovery.MailResolver;
-import org.apache.flink.streaming.util.recovery.StepCursor;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
@@ -109,7 +113,6 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
@@ -262,6 +265,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     private final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
 
+    protected AsyncLogWriter writer;
     protected MailResolver mailResolver;
     protected DataLogManager dataLogManager;
     public DPLogManager dpLogManager;
@@ -341,14 +345,19 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         super(environment);
 
         this.configuration = new StreamConfig(getTaskConfiguration());
-        this.recordWriter = createRecordWriterDelegate(configuration, environment);
-        this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
         String id = getEnvironment().getJobVertexId().toString();
         TaskInfo info = getEnvironment().getTaskInfo();
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
-        AbstractLogStorage storage = AbstractLogStorage.getLogStorage(logName);
-        AsyncLogWriter writer = new AsyncLogWriter(storage);
+        AbstractLogStorage storage = new LocalDiskLogStorage(logName);
+        writer = new AsyncLogWriter(storage);
         StepCursor stepCursor = new StepCursor(storage.getStepCursor(), writer);
+        for(ResultPartitionWriter rpWriter: environment.getAllWriters()){
+            for(ResultSubpartition sub: ((BufferWritingResultPartition)rpWriter).subpartitions){
+                ((PipelinedSubpartition)sub).registerOutput(writer, stepCursor);
+            }
+        }
+        this.recordWriter = createRecordWriterDelegate(configuration, environment);
+        this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
         this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor, environment.getTaskInfo().getTaskNameWithSubtasks());
         this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
         this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
@@ -854,6 +863,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             terminationFuture.completeExceptionally(suppressedException);
             throw suppressedException;
         }
+
     }
 
     protected CompletableFuture<Void> getCompletionFuture() {

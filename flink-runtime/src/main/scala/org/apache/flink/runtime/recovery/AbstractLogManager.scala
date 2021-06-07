@@ -1,4 +1,4 @@
-package org.apache.flink.streaming.util.recovery
+package org.apache.flink.runtime.recovery
 
 abstract class AbstractLogManager {
   private var _isEnabled = false

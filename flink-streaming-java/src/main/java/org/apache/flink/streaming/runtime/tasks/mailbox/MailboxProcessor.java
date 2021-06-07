@@ -23,12 +23,7 @@ import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox.MailboxClosedException;
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DPLogManager;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
-import org.apache.flink.streaming.util.recovery.MailResolver;
-import org.apache.flink.streaming.util.recovery.StepCursor;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.WrappingRuntimeException;
@@ -36,8 +31,6 @@ import org.apache.flink.util.function.RunnableWithException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import scala.Tuple2;
 
 import javax.annotation.Nullable;
 

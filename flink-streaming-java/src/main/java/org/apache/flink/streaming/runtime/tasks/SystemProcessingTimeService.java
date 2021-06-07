@@ -20,8 +20,8 @@ package org.apache.flink.streaming.runtime.tasks;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.time.Deadline;
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.AbstractLogStorage;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import org.slf4j.Logger;
@@ -29,8 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 import java.util.ArrayDeque;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Queue;
 import java.util.concurrent.BlockingQueue;

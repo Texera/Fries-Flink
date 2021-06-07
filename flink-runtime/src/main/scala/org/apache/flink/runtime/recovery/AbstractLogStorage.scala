@@ -1,7 +1,7 @@
-package org.apache.flink.streaming.util.recovery
+package org.apache.flink.runtime.recovery
 
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage.LogRecord
+import org.apache.flink.runtime.recovery.AbstractLogStorage.LogRecord
 
 import scala.collection.mutable
 
@@ -15,10 +15,6 @@ object AbstractLogStorage{
   case object ShutdownWriter extends LogRecord
   case class TimerOutput(time:Long) extends LogRecord
 
-
-  def getLogStorage(name:String):AbstractLogStorage = {
-    new LocalDiskLogStorage(name)
-  }
 
 }
 

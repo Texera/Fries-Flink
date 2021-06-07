@@ -71,7 +71,7 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
         final long now = context.getCurrentProcessingTime();
         if (staggerOffset == null) {
             staggerOffset =
-                    windowStagger.getStaggerOffset(context.getCurrentProcessingTime(), size);
+                    windowStagger.getStaggerOffset(now, size);
         }
         long start =
                 TimeWindow.getWindowStartWithOffset(

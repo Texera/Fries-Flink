@@ -17,7 +17,6 @@
 
 package org.apache.flink.streaming.api.operators;
 
-import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.watermark.Watermark;
@@ -28,10 +27,9 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 import org.apache.flink.streaming.util.recovery.DPLogManager;
 import org.apache.flink.streaming.util.recovery.FutureWrapper;
-import org.apache.flink.streaming.util.recovery.StepCursor;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.Preconditions;
 
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledFuture;
 
 /** Source contexts for various stream time characteristics. */

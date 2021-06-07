@@ -50,7 +50,6 @@ import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
 import org.apache.flink.streaming.runtime.tasks.OperatorChain;
 import org.apache.flink.streaming.runtime.tasks.SourceOperatorStreamTask;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
 
 import java.util.Arrays;

@@ -18,7 +18,7 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
 import org.apache.flink.util.Preconditions;
 
 import java.util.Comparator;

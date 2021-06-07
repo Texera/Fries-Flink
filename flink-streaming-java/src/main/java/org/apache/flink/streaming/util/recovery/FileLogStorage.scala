@@ -3,11 +3,13 @@ package org.apache.flink.streaming.util.recovery
 import java.io.{DataInputStream, DataOutputStream}
 
 import com.twitter.chill.akka.AkkaSerializer
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage._
-import org.apache.flink.streaming.util.recovery.FileLogStorage._
-import org.apache.hadoop.fs.{FSDataOutputStream, Syncable}
+import org.apache.flink.runtime.recovery.AbstractLogStorage
+import org.apache.flink.runtime.recovery.AbstractLogStorage._
+import org.apache.flink.streaming.util.recovery.FileLogStorage.{ByteArrayReader, ByteArrayWriter}
+import org.apache.hadoop.fs.Syncable
 
 import scala.collection.mutable
+import FileLogStorage._
 
 object FileLogStorage {
   val globalSerializer = new AkkaSerializer(null)
@@ -106,7 +108,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
               loadedLogs.append(ctrl)
             case payload: UpdateStepCursor =>
               stepCursor = payload.step
-            case TimerOutput(time) =>
+            case time:java.lang.Long =>
               timerOutputs.append(time)
             case other =>
               throw new RuntimeException(
@@ -126,6 +128,8 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
 
   override def write(record: LogRecord): Unit = {
     record match{
+      case TimerOutput(time) =>
+        output.write(globalSerializer.toBinary(Long.box(time)))
       case _ =>
         output.write(globalSerializer.toBinary(record))
     }

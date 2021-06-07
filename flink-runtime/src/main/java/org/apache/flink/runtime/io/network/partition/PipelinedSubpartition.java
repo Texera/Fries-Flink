@@ -31,6 +31,10 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumerWithPartialRecor
 import org.apache.flink.runtime.io.network.logger.NetworkActionsLogger;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+
+import org.apache.flink.runtime.recovery.StepCursor;
+
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
 
 import org.slf4j.Logger;
@@ -110,10 +114,21 @@ public class PipelinedSubpartition extends ResultSubpartition
 
     int sequenceNumber = 0;
 
+    private AsyncLogWriter writer;
+    private StepCursor cursor;
+    private int index;
+
     // ------------------------------------------------------------------------
 
     PipelinedSubpartition(int index, ResultPartition parent) {
         super(index, parent);
+    }
+
+
+    public void registerOutput(AsyncLogWriter writer, StepCursor cursor){
+        index = writer.registerOutputCallback(this::addInner);
+        this.writer = writer;
+        this.cursor = cursor;
     }
 
     @Override
@@ -124,50 +139,69 @@ public class PipelinedSubpartition extends ResultSubpartition
 
     @Override
     public boolean add(BufferConsumer bufferConsumer, int partialRecordLength) {
-        return add(bufferConsumer, partialRecordLength, false);
+        addAlt(bufferConsumer, partialRecordLength, false);
+        return true;
     }
 
     @Override
     public void finishReadRecoveredState(boolean notifyAndBlockOnCompletion) throws IOException {
         if (notifyAndBlockOnCompletion) {
-            add(EventSerializer.toBufferConsumer(EndOfChannelStateEvent.INSTANCE, false), 0, false);
+            addAlt(EventSerializer.toBufferConsumer(EndOfChannelStateEvent.INSTANCE, false), 0, false);
         }
     }
 
     @Override
     public void finish() throws IOException {
-        add(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE, false), 0, true);
+        addAlt(EventSerializer.toBufferConsumer(EndOfPartitionEvent.INSTANCE, false), 0, true);
         LOG.debug("{}: Finished {}.", parent.getOwningTaskName(), this);
+    }
+
+    private void addAlt(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
+        writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
+    }
+
+    private void addInner(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
+        int prioritySequenceNumber = -1;
+        synchronized (buffers) {
+            if (addBuffer(bufferConsumer, partialRecordLength)) {
+                prioritySequenceNumber = sequenceNumber;
+            }
+            isFinished |= finish;
+        }
+        if (prioritySequenceNumber != -1) {
+            notifyPriorityEvent(prioritySequenceNumber);
+        }
+        notifyDataAvailable();
     }
 
     private boolean add(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish) {
         checkNotNull(bufferConsumer);
 
-        final boolean notifyDataAvailable;
-        int prioritySequenceNumber = -1;
-        synchronized (buffers) {
+//        final boolean notifyDataAvailable;
+//        int prioritySequenceNumber = -1;
+//        synchronized (buffers) {
             if (isFinished || isReleased) {
                 bufferConsumer.close();
                 return false;
             }
 
             // Add the bufferConsumer and update the stats
-            if (addBuffer(bufferConsumer, partialRecordLength)) {
-                prioritySequenceNumber = sequenceNumber;
-            }
+//            if (addBuffer(bufferConsumer, partialRecordLength)) {
+//                prioritySequenceNumber = sequenceNumber;
+//            }
             updateStatistics(bufferConsumer);
             increaseBuffersInBacklog(bufferConsumer);
-            notifyDataAvailable = finish || shouldNotifyDataAvailable();
+//            notifyDataAvailable = finish || shouldNotifyDataAvailable();
 
-            isFinished |= finish;
-        }
+//            isFinished |= finish;
+//        }
 
-        if (prioritySequenceNumber != -1) {
-            notifyPriorityEvent(prioritySequenceNumber);
-        }
-        if (notifyDataAvailable) {
-            notifyDataAvailable();
-        }
+//        if (prioritySequenceNumber != -1) {
+//            notifyPriorityEvent(prioritySequenceNumber);
+//        }
+//        if (notifyDataAvailable) {
+//            notifyDataAvailable();
+//        }
 
         return true;
     }
@@ -523,7 +557,7 @@ public class PipelinedSubpartition extends ResultSubpartition
         return readView != null
                 && !flushRequested
                 && !isBlocked
-                && getNumberOfFinishedBuffers() == 1;
+                && getNumberOfFinishedBuffers() > 1;
     }
 
     private void notifyDataAvailable() {

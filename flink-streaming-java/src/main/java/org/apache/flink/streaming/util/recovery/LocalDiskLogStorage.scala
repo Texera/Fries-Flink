@@ -1,6 +1,6 @@
 package org.apache.flink.streaming.util.recovery
 
-import java.io.{DataInputStream, DataOutputStream, File}
+import java.io.{DataInputStream, DataOutputStream}
 import java.nio.file.{Files, Paths, StandardOpenOption}
 
 object LocalDiskLogStorage{

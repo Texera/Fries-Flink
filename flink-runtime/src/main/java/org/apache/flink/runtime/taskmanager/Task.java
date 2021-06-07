@@ -893,6 +893,8 @@ public class Task
             try {
                 LOG.info("Freeing task resources for {} ({}).", taskNameWithSubtask, executionId);
 
+                Thread.sleep(1000);
+
                 // clear the reference to the invokable. this helps guard against holding references
                 // to the invokable and its structures in cases where this Task object is still
                 // referenced

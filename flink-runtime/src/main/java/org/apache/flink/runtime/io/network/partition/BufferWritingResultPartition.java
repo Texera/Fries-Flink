@@ -53,7 +53,7 @@ import static org.apache.flink.util.Preconditions.checkState;
 public abstract class BufferWritingResultPartition extends ResultPartition {
 
     /** The subpartitions of this partition. At least one. */
-    protected final ResultSubpartition[] subpartitions;
+    public final ResultSubpartition[] subpartitions;
 
     /**
      * For non-broadcast mode, each subpartition maintains a separate BufferBuilder which might be
@@ -248,7 +248,7 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
 
         if (buffer == null) {
             buffer = requestNewUnicastBufferBuilder(targetSubpartition);
-            subpartitions[targetSubpartition].add(buffer.createBufferConsumerFromBeginning(), 0);
+            //subpartitions[targetSubpartition].add(buffer.createBufferConsumerFromBeginning(), 0);
         }
 
         buffer.appendAndCommit(record);
@@ -267,8 +267,8 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
         // with a complete record.
         // !! The next two lines can not change order.
         final int partialRecordBytes = buffer.appendAndCommit(remainingRecordBytes);
-        subpartitions[targetSubpartition].add(
-                buffer.createBufferConsumerFromBeginning(), partialRecordBytes);
+//        subpartitions[targetSubpartition].add(
+//                buffer.createBufferConsumerFromBeginning(), partialRecordBytes);
 
         return buffer;
     }
@@ -304,11 +304,11 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
 
     private void createBroadcastBufferConsumers(BufferBuilder buffer, int partialRecordBytes)
             throws IOException {
-        try (final BufferConsumer consumer = buffer.createBufferConsumerFromBeginning()) {
-            for (ResultSubpartition subpartition : subpartitions) {
-                subpartition.add(consumer.copy(), partialRecordBytes);
-            }
-        }
+//        try (final BufferConsumer consumer = buffer.createBufferConsumerFromBeginning()) {
+//            for (ResultSubpartition subpartition : subpartitions) {
+//                subpartition.add(consumer.copy(), partialRecordBytes);
+//            }
+//        }
     }
 
     private BufferBuilder requestNewUnicastBufferBuilder(int targetSubpartition)
@@ -347,11 +347,17 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
         }
     }
 
-    private void finishUnicastBufferBuilder(int targetSubpartition) {
+    private void finishUnicastBufferBuilder(int targetSubpartition){
         final BufferBuilder bufferBuilder = unicastBufferBuilders[targetSubpartition];
         if (bufferBuilder != null) {
             numBytesOut.inc(bufferBuilder.finish());
             numBuffersOut.inc();
+            try {
+                subpartitions[targetSubpartition].add(bufferBuilder.createBufferConsumerFromBeginning(),
+                        bufferBuilder.getCommittedBytes());
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             unicastBufferBuilders[targetSubpartition] = null;
         }
     }
@@ -366,6 +372,13 @@ public abstract class BufferWritingResultPartition extends ResultPartition {
         if (broadcastBufferBuilder != null) {
             numBytesOut.inc(broadcastBufferBuilder.finish() * numSubpartitions);
             numBuffersOut.inc(numSubpartitions);
+            try (final BufferConsumer consumer = broadcastBufferBuilder.createBufferConsumerFromBeginning()) {
+                for (ResultSubpartition subpartition : subpartitions) {
+                    subpartition.add(consumer.copy(), broadcastBufferBuilder.getCommittedBytes());
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
             broadcastBufferBuilder = null;
         }
     }

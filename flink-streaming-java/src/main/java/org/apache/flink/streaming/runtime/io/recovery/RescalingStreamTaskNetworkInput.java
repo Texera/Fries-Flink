@@ -45,8 +45,6 @@ import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Maps;
 
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
-
 import org.apache.flink.streaming.util.recovery.DataLogManager;
 
 import org.slf4j.Logger;

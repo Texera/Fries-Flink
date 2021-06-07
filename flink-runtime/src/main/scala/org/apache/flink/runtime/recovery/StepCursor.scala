@@ -1,6 +1,6 @@
-package org.apache.flink.streaming.util.recovery
+package org.apache.flink.runtime.recovery
 
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage.UpdateStepCursor
+import org.apache.flink.runtime.recovery.AbstractLogStorage.UpdateStepCursor
 
 class StepCursor(target:Long, logWriter: AsyncLogWriter) {
   private var _cursor = 0L

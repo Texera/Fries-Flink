@@ -1,14 +1,14 @@
 package org.apache.flink.streaming.util.recovery
 
-
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage.{ChannelOrder, UpdateStepCursor, getLogStorage}
+import org.apache.flink.runtime.recovery.AbstractLogStorage.ChannelOrder
+import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, StepCursor}
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement
-import org.apache.flink.streaming.util.recovery.DataLogManager.{PROCESSED_EVENT, PROCESSED_NOTHING, PROCESSED_RECORD}
 
 import scala.collection.mutable
+import DataLogManager._
 
 object DataLogManager{
   val PROCESSED_NOTHING = 0

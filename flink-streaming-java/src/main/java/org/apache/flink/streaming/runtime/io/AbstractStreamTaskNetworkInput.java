@@ -32,12 +32,7 @@ import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
-
-import org.apache.flink.streaming.util.recovery.StepCursor;
-
-import scala.runtime.BoxedUnit;
 
 import java.io.IOException;
 import java.util.ArrayList;

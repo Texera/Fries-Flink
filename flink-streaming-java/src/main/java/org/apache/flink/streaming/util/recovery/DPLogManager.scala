@@ -1,7 +1,8 @@
 package org.apache.flink.streaming.util.recovery
 
+import org.apache.flink.runtime.recovery.AbstractLogStorage._
+import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, StepCursor}
 import org.apache.flink.streaming.runtime.tasks.mailbox.Mail
-import org.apache.flink.streaming.util.recovery.AbstractLogStorage._
 
 import scala.collection.mutable
 

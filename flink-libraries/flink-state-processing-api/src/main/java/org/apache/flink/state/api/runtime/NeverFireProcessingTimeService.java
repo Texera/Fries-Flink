@@ -20,7 +20,7 @@ package org.apache.flink.state.api.runtime;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.TimerService;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
 import org.apache.flink.util.concurrent.NeverCompleteFuture;
 
 import java.util.concurrent.CompletableFuture;

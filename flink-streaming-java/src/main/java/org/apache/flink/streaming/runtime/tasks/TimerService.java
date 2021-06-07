@@ -18,7 +18,7 @@
 package org.apache.flink.streaming.runtime.tasks;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.streaming.util.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
 
 /**
  * A common timer service interface with life cycle methods.
