@@ -51,8 +51,8 @@ public class AllroundMiniClusterTest extends TestLogger {
     public static MiniClusterWithClientResource miniClusterResource =
             new MiniClusterWithClientResource(
                     new MiniClusterResourceConfiguration.Builder()
-                            .setNumberTaskManagers(1)
-                            .setNumberSlotsPerTaskManager(2)
+                            .setNumberTaskManagers(3)
+                            .setNumberSlotsPerTaskManager(1)
                             .setConfiguration(createConfiguration())
                             .build());
 

@@ -6,9 +6,9 @@ import org.apache.flink.runtime.recovery.AbstractLogStorage.ChannelOrder
 import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, StepCursor}
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement
+import org.apache.flink.streaming.util.recovery.DataLogManager._
 
 import scala.collection.mutable
-import DataLogManager._
 
 object DataLogManager{
   val PROCESSED_NOTHING = 0

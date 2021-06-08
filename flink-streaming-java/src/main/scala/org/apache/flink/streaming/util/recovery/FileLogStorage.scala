@@ -5,11 +5,10 @@ import java.io.{DataInputStream, DataOutputStream}
 import com.twitter.chill.akka.AkkaSerializer
 import org.apache.flink.runtime.recovery.AbstractLogStorage
 import org.apache.flink.runtime.recovery.AbstractLogStorage._
-import org.apache.flink.streaming.util.recovery.FileLogStorage.{ByteArrayReader, ByteArrayWriter}
+import org.apache.flink.streaming.util.recovery.FileLogStorage.{ByteArrayReader, ByteArrayWriter, _}
 import org.apache.hadoop.fs.Syncable
 
 import scala.collection.mutable
-import FileLogStorage._
 
 object FileLogStorage {
   val globalSerializer = new AkkaSerializer(null)
@@ -39,7 +38,12 @@ object FileLogStorage {
 
     def read(): Array[Byte] = {
       val length = inputStream.readInt()
-      inputStream.readNBytes(length)
+      val res = new Array[Byte](length)
+      var n = 0
+      while(n < length){
+        n+=inputStream.read(res, n, length - n)
+      }
+      res
     }
 
     def close(): Unit = {
