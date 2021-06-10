@@ -11,7 +11,6 @@ import org.apache.hadoop.fs.Syncable
 import scala.collection.mutable
 
 object FileLogStorage {
-  val globalSerializer = new AkkaSerializer(null)
 
   class ByteArrayWriter(outputStream: DataOutputStream) {
 
@@ -70,6 +69,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
 
   private lazy val output = new ByteArrayWriter(getOutputStream)
 
+  private val globalSerializer = RecoveryUtils.getInstance().serializer
   private val loadedLogs = mutable.ArrayBuffer.empty[LogRecord]
   private val timerOutputs = mutable.ArrayBuffer.empty[Long]
   private var stepCursor:Long = 0L

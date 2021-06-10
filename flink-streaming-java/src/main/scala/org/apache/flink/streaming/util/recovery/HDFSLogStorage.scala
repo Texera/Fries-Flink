@@ -1,26 +1,13 @@
 package org.apache.flink.streaming.util.recovery
 
 import java.io.{DataInputStream, DataOutputStream, InputStream, OutputStream}
-import java.net.URI
 
-import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 
-object HDFSLogStorage {
-}
 
 class HDFSLogStorage(logName: String) extends FileLogStorage(logName) {
 
-  val hostAddress = "hdfs://10.128.0.2:8020/"
-  val hdfsConf = new Configuration()
-  hdfsConf.set("dfs.client.block.write.replace-datanode-on-failure.enable", "false")
-  var hdfs:FileSystem = null
-  try{
-    hdfs = FileSystem.get(new URI(hostAddress), hdfsConf)
-  } catch{
-    case e:Throwable =>
-      e.printStackTrace()
-  }
+  val hdfs: FileSystem = RecoveryUtils.getInstance().hdfs
 
   private lazy val path = new Path(s"./logs/$logName.log")
 
