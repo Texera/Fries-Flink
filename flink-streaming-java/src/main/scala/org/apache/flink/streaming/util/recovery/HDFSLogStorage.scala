@@ -8,6 +8,10 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import HDFSLogStorage.hdfs
 
 object HDFSLogStorage {
+}
+
+class HDFSLogStorage(logName: String) extends FileLogStorage(logName) {
+
   val hostAddress = "hdfs://10.128.0.2:8020/"
   val hdfsConf = new Configuration()
   hdfsConf.set("dfs.client.block.write.replace-datanode-on-failure.enable", "false")
@@ -18,9 +22,6 @@ object HDFSLogStorage {
     case e:Throwable =>
       e.printStackTrace()
   }
-}
-
-class HDFSLogStorage(logName: String) extends FileLogStorage(logName) {
 
   private lazy val path = new Path(s"./logs/$logName.log")
 
