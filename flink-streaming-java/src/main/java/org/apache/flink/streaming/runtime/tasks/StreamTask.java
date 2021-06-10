@@ -59,6 +59,7 @@ import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.streaming.util.recovery.HDFSLogStorage;
 import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.runtime.security.FlinkSecurityManager;
 import org.apache.flink.runtime.state.CheckpointStorage;
@@ -348,7 +349,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         String id = getEnvironment().getJobVertexId().toString();
         TaskInfo info = getEnvironment().getTaskInfo();
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
-        AbstractLogStorage storage = new LocalDiskLogStorage(logName);
+        AbstractLogStorage storage = new HDFSLogStorage(logName);
         writer = new AsyncLogWriter(storage);
         StepCursor stepCursor = new StepCursor(storage.getStepCursor(), writer);
         for(ResultPartitionWriter rpWriter: environment.getAllWriters()){
