@@ -5,7 +5,6 @@ import java.net.URI
 
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
-import HDFSLogStorage.hdfs
 
 object HDFSLogStorage {
 }
