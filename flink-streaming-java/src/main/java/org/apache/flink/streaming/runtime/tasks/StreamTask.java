@@ -449,6 +449,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         mainMailboxExecutor.execute(() -> {}, "resume");
     }
 
+    @Override
+    public void shutdown() {
+        writer.shutdown();
+    }
+
     private TimerService createTimerService(String timerThreadName) {
         ThreadFactory timerThreadFactory =
                 new DispatcherThreadFactory(TRIGGER_THREAD_GROUP, timerThreadName);
