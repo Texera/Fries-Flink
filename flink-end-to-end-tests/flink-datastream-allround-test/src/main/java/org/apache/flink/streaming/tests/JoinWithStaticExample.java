@@ -17,18 +17,8 @@ package org.apache.flink.streaming.tests;
  * limitations under the License.
  */
 
-import org.apache.flink.api.common.eventtime.Watermark;
-import org.apache.flink.api.common.eventtime.WatermarkGenerator;
-import org.apache.flink.api.common.eventtime.WatermarkGeneratorSupplier;
-import org.apache.flink.api.common.eventtime.WatermarkOutput;
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.api.common.functions.JoinFunction;
-import org.apache.flink.api.common.state.ListState;
-import org.apache.flink.api.common.state.ListStateDescriptor;
-import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.api.common.typeinfo.TypeHint;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.functions.KeySelector;
+
+
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
@@ -54,6 +44,8 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.util.Collector;
 
+import java.io.File;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -66,7 +58,13 @@ public class JoinWithStaticExample {
 
 
     public static void main(String[] args) throws Exception {
-        final ParameterTool pt = ParameterTool.fromArgs(args);
+        final ParameterTool pt = ParameterTool.fromArgs(new String[] {
+                "--environment.parallelism", "2",
+                "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
+                "--test.simulate_failure", "false",
+                "--test.simulate_failure.max_failures", String.valueOf(1),
+                "--test.simulate_failure.num_records", "100"
+        });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -118,12 +116,12 @@ public class JoinWithStaticExample {
         }).map(x -> x.f0*x.f1).windowAll(TumblingProcessingTimeWindows.of(Time.milliseconds(1000))).sum(0).print();
 
         // execute program
-        JobClient  jobClient = env.executeAsync("Join Example");
+        env.execute("Join Example");
 //        Thread.sleep(5000);
 //        jobClient.pause();
 //        Thread.sleep(20000);
 //        jobClient.resume();
-        jobClient.getJobExecutionResult().get();
+//        jobClient.getJobExecutionResult().get();
     }
 
 

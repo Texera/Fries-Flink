@@ -15,7 +15,7 @@ public class RecoveryUtils {
 
     // private constructor restricted to this class itself
     private RecoveryUtils() {
-        String hostAddress = "hdfs://10.128.0.2:8020/";
+        String hostAddress = "hdfs://10.128.0.5:8020/";
         Configuration hdfsConf = new Configuration();
         hdfsConf.set("dfs.client.block.write.replace-datanode-on-failure.enable", "false");
         try {
