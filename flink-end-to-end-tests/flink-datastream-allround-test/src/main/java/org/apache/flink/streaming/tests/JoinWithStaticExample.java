@@ -59,6 +59,7 @@ public class JoinWithStaticExample {
 
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
+                "--classloader.check-leaked-classloader","false",
                 "--environment.parallelism", "2",
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--test.simulate_failure", "false",

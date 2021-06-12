@@ -96,13 +96,17 @@ public class SystemProcessingTimeService implements TimerService {
     @Override
     public long getCurrentProcessingTime() {
         long id = Thread.currentThread().getId();
-        if(outputQueues.get(id).isEmpty()){
-            long res = System.currentTimeMillis();
-            writers.get(id).addLogRecord(new AbstractLogStorage.TimerOutput(res));
-            return res;
+        if(outputQueues.containsKey(id)){
+            if(outputQueues.get(id).isEmpty()){
+                long res = System.currentTimeMillis();
+                writers.get(id).addLogRecord(new AbstractLogStorage.TimerOutput(res));
+                return res;
+            }else{
+                Long res = outputQueues.get(id).poll();
+                return res == null? 0: res;
+            }
         }else{
-            Long res = outputQueues.get(id).poll();
-            return res == null? 0: res;
+            return System.currentTimeMillis();
         }
     }
 

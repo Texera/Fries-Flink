@@ -77,25 +77,20 @@ public class StreamSQLTestProgram {
 
     public static void main(String[] args) throws Exception {
 
-        ParameterTool params = ParameterTool.fromArgs(args);
-        String outputPath = params.getRequired("outputPath");
-        String planner = params.get("planner", "blink");
+        ParameterTool params = ParameterTool.fromArgs(new String[] {
+                "--classloader.check-leaked-classloader","false",
+                "--environment.parallelism", "2",
+                "--state_backend.checkpoint_directory", "file:///home/shengqun97/"});
 
         final EnvironmentSettings.Builder builder = EnvironmentSettings.newInstance();
         builder.inStreamingMode();
-
-        if (planner.equals("old")) {
-            builder.useOldPlanner();
-        } else if (planner.equals("blink")) {
-            builder.useBlinkPlanner();
-        }
 
         final EnvironmentSettings settings = builder.build();
 
         final StreamExecutionEnvironment sEnv =
                 StreamExecutionEnvironment.getExecutionEnvironment();
-        sEnv.setRestartStrategy(
-                RestartStrategies.fixedDelayRestart(3, Time.of(10, TimeUnit.SECONDS)));
+
+        sEnv.getConfig().setGlobalJobParameters(params);
         sEnv.enableCheckpointing(4000);
         sEnv.getConfig().setAutoWatermarkInterval(1000);
 
@@ -161,26 +156,9 @@ public class StreamSQLTestProgram {
         DataStream<Row> resultStream =
                 tEnv.toAppendStream(result, Types.ROW(Types.INT, Types.SQL_TIMESTAMP));
 
-        final StreamingFileSink<Row> sink =
-                StreamingFileSink.forRowFormat(
-                                new Path(outputPath),
-                                (Encoder<Row>)
-                                        (element, stream) -> {
-                                            PrintStream out = new PrintStream(stream);
-                                            out.println(element.toString());
-                                        })
-                        .withBucketAssigner(new KeyBucketAssigner())
-                        .withRollingPolicy(OnCheckpointRollingPolicy.build())
-                        .build();
-
         resultStream
-                // inject a KillMapper that forwards all records but terminates the first execution
-                // attempt
-                .map(new KillMapper())
-                .setParallelism(1)
                 // add sink function
-                .addSink(sink)
-                .setParallelism(1);
+                .print();
 
         sEnv.execute();
     }
