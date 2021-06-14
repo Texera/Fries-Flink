@@ -121,8 +121,8 @@ public abstract class AbstractInvokable {
         //do nothing
     }
 
-    public void shutdown(){
-        //do nothing
+    public CompletableFuture<?> shutdown(){
+        return null;
     }
 
     /**

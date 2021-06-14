@@ -2,7 +2,7 @@ package org.apache.flink.runtime.recovery
 
 import java.nio.ByteBuffer
 import java.util
-import java.util.concurrent.{ExecutorService, Executors, LinkedBlockingQueue}
+import java.util.concurrent.{CompletableFuture, ExecutorService, Executors, LinkedBlockingQueue}
 
 import org.apache.flink.runtime.event.AbstractEvent
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer
@@ -28,7 +28,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
   private var persistedStepCursor = storage.getStepCursor
   private var cursorUpdated = false
   val logRecordQueue: LinkedBlockingQueue[LogRecord] = Queues.newLinkedBlockingQueue()
-
+  private val shutdownFuture = new CompletableFuture[Void]()
   private val outputCallbackMap = new mutable.ArrayBuffer[TriConsumer[BufferConsumer, Integer, java.lang.Boolean]]()
   private val outputMailbox:LinkedBlockingQueue[NetworkOutputElem] = Queues.newLinkedBlockingQueue()
 
@@ -41,8 +41,9 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
     outputMailbox.put(elem)
   }
 
-  def shutdown(): Unit ={
+  def shutdown(): CompletableFuture[Void] ={
     logRecordQueue.put(ShutdownWriter)
+    shutdownFuture
   }
 
   def registerOutputCallback(outputCallback:TriConsumer[BufferConsumer, Integer, java.lang.Boolean]):Int = {
@@ -81,6 +82,9 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
               }
           }
         }
+        outputCallbackMap.clear()
+        outputMailbox.clear()
+        shutdownFuture.complete(null)
       }catch{
         case e:Throwable =>
           e.printStackTrace()
@@ -128,6 +132,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
             addOutput(CursorUpdate(persistedStepCursor))
             //if(storage.name == "exampleJob-0f02-0") System.out.println("buffer size = "+logRecordQueue.size())
           }
+          logRecordQueue.clear()
           storage.release()
           addOutput(ShutdownOutput)
         } catch {

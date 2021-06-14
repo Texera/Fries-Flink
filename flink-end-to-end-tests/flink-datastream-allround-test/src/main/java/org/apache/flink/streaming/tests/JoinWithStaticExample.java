@@ -24,7 +24,6 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.core.execution.JobClient;
-import org.apache.flink.runtime.recovery.RecoveryUtils;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -61,12 +60,14 @@ public class JoinWithStaticExample {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--environment.parallelism", "2",
+                "--environment.parallelism", "3",
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
                 "--test.simulate_failure.num_records", "100",
-                "--print-level", Integer.toString(RecoveryUtils.PRINT_RECEIVE)
+                "--print-level", "0",
+                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
+                "--enable-logging","true",
         });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -157,10 +158,9 @@ public class JoinWithStaticExample {
         @Override
         public void run(SourceContext<Long> ctx) throws InterruptedException {
             long count = 0;
-            while (running && count < 2000) {
+            while (running && count < 20000) {
                 ctx.collect(count);
                 count++;
-                Thread.sleep(10);
             }
         }
 
@@ -181,7 +181,6 @@ public class JoinWithStaticExample {
             while (running && count < 600) {
                 ctx.collect((long)count%3);
                 count++;
-                Thread.sleep(33);
             }
         }
 

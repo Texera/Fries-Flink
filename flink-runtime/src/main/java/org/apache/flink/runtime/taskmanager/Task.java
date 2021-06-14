@@ -898,8 +898,11 @@ public class Task
                 // clear the reference to the invokable. this helps guard against holding references
                 // to the invokable and its structures in cases where this Task object is still
                 // referenced
-                this.invokable.shutdown();
-                Thread.sleep(2000);
+                CompletableFuture<?> shutdownFuture = this.invokable.shutdown();
+                if(shutdownFuture != null){
+                    shutdownFuture.join();
+                }
+                Thread.sleep(1000);
                 this.invokable = null;
 
                 // free the network resources

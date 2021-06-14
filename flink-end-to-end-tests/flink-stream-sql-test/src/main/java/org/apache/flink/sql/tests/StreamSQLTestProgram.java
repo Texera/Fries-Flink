@@ -82,8 +82,10 @@ public class StreamSQLTestProgram {
                 "--environment.parallelism", "2",
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
-                "--enable-logging","false",
+                "--enable-logging","true",
                 "--print-level", "0"});
+
+        String outputPath = "./";
 
         final EnvironmentSettings.Builder builder = EnvironmentSettings.newInstance();
         builder.inStreamingMode();
@@ -159,9 +161,22 @@ public class StreamSQLTestProgram {
         DataStream<Row> resultStream =
                 tEnv.toAppendStream(result, Types.ROW(Types.INT, Types.SQL_TIMESTAMP));
 
+        final StreamingFileSink<Row> sink =
+                StreamingFileSink.forRowFormat(
+                        new Path(outputPath),
+                        (Encoder<Row>)
+                                (element, stream) -> {
+                                    PrintStream out = new PrintStream(stream);
+                                    out.println(element.toString());
+                                })
+                        .withBucketAssigner(new KeyBucketAssigner())
+                        .withRollingPolicy(OnCheckpointRollingPolicy.build())
+                        .build();
+
         resultStream
                 // add sink function
-                .print();
+                .addSink(sink)
+                .setParallelism(1);
 
         sEnv.execute();
     }

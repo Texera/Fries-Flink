@@ -469,8 +469,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     @Override
-    public void shutdown() {
-        writer.shutdown();
+    public CompletableFuture<?> shutdown() {
+        return writer.shutdown();
     }
 
     private TimerService createTimerService(String timerThreadName) {
