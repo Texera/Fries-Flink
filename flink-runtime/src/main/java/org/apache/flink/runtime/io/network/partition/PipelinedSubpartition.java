@@ -33,6 +33,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateE
 
 import org.apache.flink.runtime.recovery.AsyncLogWriter;
 
+import org.apache.flink.runtime.recovery.RecoveryUtils;
 import org.apache.flink.runtime.recovery.StepCursor;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Iterators;
@@ -157,7 +158,11 @@ public class PipelinedSubpartition extends ResultSubpartition
     }
 
     private void addAlt(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
-        writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
+        if(RecoveryUtils.isEnabled){
+            writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
+        }else{
+            add(bufferConsumer, partialRecordLength, finish);
+        }
     }
 
     private void addInner(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
@@ -177,31 +182,31 @@ public class PipelinedSubpartition extends ResultSubpartition
     private boolean add(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish) {
         checkNotNull(bufferConsumer);
 
-//        final boolean notifyDataAvailable;
-//        int prioritySequenceNumber = -1;
-//        synchronized (buffers) {
+        final boolean notifyDataAvailable;
+        int prioritySequenceNumber = -1;
+        synchronized (buffers) {
             if (isFinished || isReleased) {
                 bufferConsumer.close();
                 return false;
             }
 
             // Add the bufferConsumer and update the stats
-//            if (addBuffer(bufferConsumer, partialRecordLength)) {
-//                prioritySequenceNumber = sequenceNumber;
-//            }
+            if (addBuffer(bufferConsumer, partialRecordLength)) {
+                prioritySequenceNumber = sequenceNumber;
+            }
             updateStatistics(bufferConsumer);
             increaseBuffersInBacklog(bufferConsumer);
-//            notifyDataAvailable = finish || shouldNotifyDataAvailable();
+            notifyDataAvailable = finish || shouldNotifyDataAvailable();
 
-//            isFinished |= finish;
-//        }
+            isFinished |= finish;
+        }
 
-//        if (prioritySequenceNumber != -1) {
-//            notifyPriorityEvent(prioritySequenceNumber);
-//        }
-//        if (notifyDataAvailable) {
-//            notifyDataAvailable();
-//        }
+        if (prioritySequenceNumber != -1) {
+            notifyPriorityEvent(prioritySequenceNumber);
+        }
+        if (notifyDataAvailable) {
+            notifyDataAvailable();
+        }
 
         return true;
     }

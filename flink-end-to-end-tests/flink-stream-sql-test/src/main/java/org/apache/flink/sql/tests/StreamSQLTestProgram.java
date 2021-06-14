@@ -82,7 +82,8 @@ public class StreamSQLTestProgram {
                 "--environment.parallelism", "2",
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
-                "--print-level", "3"});
+                "--enable-logging","false",
+                "--print-level", "0"});
 
         final EnvironmentSettings.Builder builder = EnvironmentSettings.newInstance();
         builder.inStreamingMode();
@@ -99,9 +100,9 @@ public class StreamSQLTestProgram {
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(sEnv, settings);
 
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table1", new GeneratorTableSource(10, 100, 600, 0));
+                .registerTableSourceInternal("table1", new GeneratorTableSource(10, 1000, 600, 0));
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table2", new GeneratorTableSource(5, 0.2f, 600, 5));
+                .registerTableSourceInternal("table2", new GeneratorTableSource(5, 1000, 300, 0));
 
         int overWindowSizeSeconds = 1;
         int tumbleWindowSizeSeconds = 10;

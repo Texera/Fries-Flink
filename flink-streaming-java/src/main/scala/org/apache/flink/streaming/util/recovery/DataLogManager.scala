@@ -1,6 +1,7 @@
 package org.apache.flink.streaming.util.recovery
 
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent
 import org.apache.flink.runtime.recovery.AbstractLogStorage.ChannelOrder
 import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, RecoveryUtils, StepCursor}
@@ -85,6 +86,10 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
   }
 
   def inputEvent[T](token:Int, channel:InputChannelInfo, elem:BufferOrEvent): Int ={
+    if(elem.getEvent.isInstanceOf[CheckpointBarrier]){
+      inners(token).inputEvent(channel, elem)
+      return PROCESSED_EVENT
+    }
     if(!stepCursor.isRecoveryCompleted) {
       val entry1 = ofoMap.getOrElseUpdate(token, mutable.HashMap())
       val entry2 = entry1.getOrElseUpdate(channel, mutable.Queue())
