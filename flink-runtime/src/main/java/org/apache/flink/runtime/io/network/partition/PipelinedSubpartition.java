@@ -161,7 +161,7 @@ public class PipelinedSubpartition extends ResultSubpartition
         if(RecoveryUtils.isEnabled){
             writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
         }else{
-            add(bufferConsumer, partialRecordLength, finish);
+            addInner(bufferConsumer, partialRecordLength, finish);
         }
     }
 
