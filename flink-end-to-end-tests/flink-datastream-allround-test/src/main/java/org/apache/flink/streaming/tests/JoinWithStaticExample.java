@@ -24,6 +24,7 @@ import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.tuple.Tuple5;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.core.execution.JobClient;
+import org.apache.flink.runtime.recovery.RecoveryUtils;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.KeyedStream;
@@ -64,7 +65,8 @@ public class JoinWithStaticExample {
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
-                "--test.simulate_failure.num_records", "100"
+                "--test.simulate_failure.num_records", "100",
+                "--print-level", Integer.toString(RecoveryUtils.PRINT_RECEIVE)
         });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();

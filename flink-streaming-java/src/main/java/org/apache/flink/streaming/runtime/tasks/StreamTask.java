@@ -424,22 +424,22 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             isPausedFuture.set();
         });
 
-        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
-
-        mailResolver.bind("checkpoint aborted", (x)-> {
-            resetSynchronousSavepointId((long)x[0], false);
-            subtaskCheckpointCoordinator.notifyCheckpointAborted(
-                     (long)x[0], operatorChain, this::isRunning);});
-
-        mailResolver.bind("checkpoint", (x) ->{
-            latestAsyncCheckpointStartDelayNanos =
-                    1_000_000
-                            * Math.max(
-                            0,
-                            System.currentTimeMillis()
-                                    - ((CheckpointMetaData)x[0]).getTimestamp());
-            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
-        });
+//        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
+//
+//        mailResolver.bind("checkpoint aborted", (x)-> {
+//            resetSynchronousSavepointId((long)x[0], false);
+//            subtaskCheckpointCoordinator.notifyCheckpointAborted(
+//                     (long)x[0], operatorChain, this::isRunning);});
+//
+//        mailResolver.bind("checkpoint", (x) ->{
+//            latestAsyncCheckpointStartDelayNanos =
+//                    1_000_000
+//                            * Math.max(
+//                            0,
+//                            System.currentTimeMillis()
+//                                    - ((CheckpointMetaData)x[0]).getTimestamp());
+//            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
+//        });
         dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
         dataLogManager = new DataLogManager(writer, stepCursor);
         mailboxProcessor.registerLogManager(dpLogManager);

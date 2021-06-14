@@ -3,7 +3,7 @@ package org.apache.flink.streaming.util.recovery
 import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent
 import org.apache.flink.runtime.recovery.AbstractLogStorage.ChannelOrder
-import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, StepCursor}
+import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, RecoveryUtils, StepCursor}
 import org.apache.flink.streaming.runtime.io.PushingAsyncDataInput.DataOutput
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement
 import org.apache.flink.streaming.util.recovery.DataLogManager._
@@ -153,13 +153,17 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
                                eventHandler: ThrowingConsumer[BufferOrEvent, _]){
 
     def inputDataRecord(channel:InputChannelInfo, elem:StreamElement, output: DataOutput[T]): Unit ={
-      //println(s"${logWriter.storage.name} process data = $elem when step = ${stepCursor.getCursor} from $channel")
+      if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_PROCESS)) {
+        println(s"${logWriter.storage.name} process data = $elem when step = ${stepCursor.getCursor} from $channel")
+      }
       dataHandler.accept(channel, elem, output)
       stepCursor.advance()
     }
 
     def inputEvent(channel: InputChannelInfo, elem:BufferOrEvent): Unit ={
-      //println(s"${logWriter.storage.name} process event = $elem when step = ${stepCursor.getCursor} from $channel")
+      if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_PROCESS)) {
+        println(s"${logWriter.storage.name} process event = $elem when step = ${stepCursor.getCursor} from $channel")
+      }
       eventHandler.accept(elem)
       stepCursor.advance()
     }

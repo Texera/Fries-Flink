@@ -80,7 +80,9 @@ public class StreamSQLTestProgram {
         ParameterTool params = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
                 "--environment.parallelism", "2",
-                "--state_backend.checkpoint_directory", "file:///home/shengqun97/"});
+                "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
+                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
+                "--print-level", "3"});
 
         final EnvironmentSettings.Builder builder = EnvironmentSettings.newInstance();
         builder.inStreamingMode();
