@@ -91,15 +91,15 @@ public class StreamSQLTestProgram {
                 StreamExecutionEnvironment.getExecutionEnvironment();
 
         sEnv.getConfig().setGlobalJobParameters(params);
-        sEnv.enableCheckpointing(4000);
+//        sEnv.enableCheckpointing(4000);
         sEnv.getConfig().setAutoWatermarkInterval(1000);
 
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(sEnv, settings);
 
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table1", new GeneratorTableSource(10, 100, 60, 0));
+                .registerTableSourceInternal("table1", new GeneratorTableSource(10, 100, 600, 0));
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table2", new GeneratorTableSource(5, 0.2f, 60, 5));
+                .registerTableSourceInternal("table2", new GeneratorTableSource(5, 0.2f, 600, 5));
 
         int overWindowSizeSeconds = 1;
         int tumbleWindowSizeSeconds = 10;

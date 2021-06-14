@@ -1,7 +1,7 @@
 package org.apache.flink.streaming.util.recovery
 
 import org.apache.flink.runtime.recovery.AbstractLogStorage._
-import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, StepCursor}
+import org.apache.flink.runtime.recovery.{AbstractLogManager, AsyncLogWriter, RecoveryUtils, StepCursor}
 import org.apache.flink.streaming.runtime.tasks.mailbox.Mail
 
 import scala.collection.mutable
@@ -36,19 +36,25 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
 
   def inputControl(mail:Mail): Unit ={
     if(!mailResolver.canHandle(mail.descriptionFormat)){
-     // println(s"${logWriter.storage.name} running ${mail.descriptionFormat} directly")
+      if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_DIRECT_CALL)) {
+        println(s"${logWriter.storage.name} running ${mail.descriptionFormat} directly")
+      }
       mail.run()
       return
     }
     orderingManager.handleMessage(currentSender, currentSeq, mail)
-    //println(s"${logWriter.storage.name} receives ${mail.descriptionFormat}")
+    if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_RECEIVE)) {
+      println(s"${logWriter.storage.name} receives ${mail.descriptionFormat}")
+    }
     currentSeq += 1
     if(stepCursor.isRecoveryCompleted){
       while(controlQueue.nonEmpty){
         val mail = controlQueue.dequeue()
         stepCursor.advance()
         persistCurrentControl(mail)
-        //println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+        if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_PROCESS)) {
+          println(s"${logWriter.storage.name} running ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+        }
         mailResolver.call(mail)
       }
     }
@@ -58,7 +64,9 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
     while(correlatedSeq.nonEmpty && correlatedSeq.head == stepCursor.getCursor+1){
       correlatedSeq.dequeue()
       val mail = controlQueue.dequeue()
-      //println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+      if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_PROCESS)) {
+        println(s"${logWriter.storage.name} recovering ${mail.descriptionFormat} when step = ${stepCursor.getCursor}")
+      }
       mailResolver.call(mail)
       stepCursor.advance()
     }

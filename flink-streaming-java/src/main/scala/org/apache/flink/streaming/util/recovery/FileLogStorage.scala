@@ -3,7 +3,7 @@ package org.apache.flink.streaming.util.recovery
 import java.io.{DataInputStream, DataOutputStream}
 
 import com.twitter.chill.akka.AkkaSerializer
-import org.apache.flink.runtime.recovery.AbstractLogStorage
+import org.apache.flink.runtime.recovery.{AbstractLogStorage, RecoveryUtils}
 import org.apache.flink.runtime.recovery.AbstractLogStorage._
 import org.apache.flink.streaming.util.recovery.FileLogStorage.{ByteArrayReader, ByteArrayWriter, _}
 import org.apache.hadoop.fs.Syncable
@@ -69,7 +69,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
 
   private lazy val output = new ByteArrayWriter(getOutputStream)
 
-  private val globalSerializer = RecoveryUtils.getInstance().serializer
+  private val globalSerializer = SerializeUtils.getSerializer
   private val loadedLogs = mutable.ArrayBuffer.empty[LogRecord]
   private val timerOutputs = mutable.ArrayBuffer.empty[Long]
   private var stepCursor:Long = 0L

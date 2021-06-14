@@ -99,6 +99,7 @@ import org.apache.flink.streaming.util.recovery.DataLogManager;
 import org.apache.flink.streaming.util.recovery.FutureWrapper;
 import org.apache.flink.streaming.util.recovery.MailResolver;
 import org.apache.flink.runtime.recovery.StepCursor;
+import org.apache.flink.runtime.recovery.RecoveryUtils;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
@@ -115,6 +116,7 @@ import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -349,7 +351,16 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         String id = getEnvironment().getJobVertexId().toString();
         TaskInfo info = getEnvironment().getTaskInfo();
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
-        AbstractLogStorage storage = new HDFSLogStorage(logName);
+        Map<String, String> globalArgs = environment.getExecutionConfig().getGlobalJobParameters().toMap();
+        AbstractLogStorage storage;
+        if(globalArgs.containsKey("print-level")){
+            RecoveryUtils.printLevel = Integer.parseInt(globalArgs.get("print-level"));
+        }
+        if(globalArgs.containsKey("hdfs-log-storage")){
+            storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
+        }else{
+            storage = new LocalDiskLogStorage(logName);
+        }
         writer = new AsyncLogWriter(storage);
         StepCursor stepCursor = new StepCursor(storage.getStepCursor(), writer);
         for(ResultPartitionWriter rpWriter: environment.getAllWriters()){

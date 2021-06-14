@@ -33,6 +33,7 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.util.recovery.DataLogManager;
+import org.apache.flink.runtime.recovery.RecoveryUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -111,7 +112,9 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
-                    //System.out.println(dataLogManager.getName()+" receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
+                    if((RecoveryUtils.needPrint(RecoveryUtils.PRINT_RECEIVE))){
+                        System.out.println(dataLogManager.getName()+" receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
+                    }
                     if(dataLogManager.isEnabled()){
                         int ret;
                         synchronized (dataLogManager.stepCursor()) {
@@ -141,7 +144,10 @@ public abstract class AbstractStreamTaskNetworkInput<
                 if (bufferOrEvent.get().isBuffer()) {
                     processBuffer(bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get().getBuffer());
                 } else {
-                    //System.out.println(dataLogManager.getName()+" receive event = "+bufferOrEvent.get());
+                    if((RecoveryUtils.needPrint(RecoveryUtils.PRINT_RECEIVE))) {
+                        System.out.println(dataLogManager.getName() + " receive event = "
+                                + bufferOrEvent.get());
+                    }
                     if(dataLogManager.isEnabled()){
                         int ret;
                         synchronized (dataLogManager.stepCursor()){
