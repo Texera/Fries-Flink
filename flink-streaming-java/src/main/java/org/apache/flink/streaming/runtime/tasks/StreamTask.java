@@ -59,6 +59,7 @@ import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.streaming.util.recovery.EmptyLogStorage;
 import org.apache.flink.streaming.util.recovery.HDFSLogStorage;
 import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.runtime.security.FlinkSecurityManager;
@@ -353,10 +354,15 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         Map<String, String> globalArgs = environment.getExecutionConfig().getGlobalJobParameters().toMap();
         AbstractLogStorage storage;
+        if(globalArgs.containsKey("enable-logging")){
+            RecoveryUtils.isEnabled = Boolean.parseBoolean(globalArgs.get("enable-logging"));
+        }
         if(globalArgs.containsKey("print-level")){
             RecoveryUtils.printLevel = Integer.parseInt(globalArgs.get("print-level"));
         }
-        if(globalArgs.containsKey("hdfs-log-storage")){
+        if(!RecoveryUtils.isEnabled){
+            storage = new EmptyLogStorage(logName);
+        }else if(globalArgs.containsKey("hdfs-log-storage")){
             storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
         }else{
             storage = new LocalDiskLogStorage(logName);
@@ -443,7 +449,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
         dataLogManager = new DataLogManager(writer, stepCursor);
         mailboxProcessor.registerLogManager(dpLogManager);
-        dataLogManager.enable();
+        if(RecoveryUtils.isEnabled){
+            dataLogManager.enable();
+        }
         System.out.println("started "+logName+" at "+System.currentTimeMillis());
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
@@ -717,7 +725,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             recoveredFutures.add(inputGate.getStateConsumedFuture());
         }
 
-        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0])).thenRun(() -> dpLogManager.enable())
+        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0])).thenRun(() -> {
+            if(RecoveryUtils.isEnabled) {
+                dpLogManager.enable();
+            }
+        })
                 .thenRun(mailboxProcessor::suspend);
     }
 
