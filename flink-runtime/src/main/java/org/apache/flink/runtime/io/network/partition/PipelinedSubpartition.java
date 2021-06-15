@@ -168,47 +168,21 @@ public class PipelinedSubpartition extends ResultSubpartition
     private void addInner(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
         int prioritySequenceNumber = -1;
         synchronized (buffers) {
+            if (isFinished || isReleased) {
+                bufferConsumer.close();
+                return;
+            }
             if (addBuffer(bufferConsumer, partialRecordLength)) {
                 prioritySequenceNumber = sequenceNumber;
             }
+            updateStatistics(bufferConsumer);
+            increaseBuffersInBacklog(bufferConsumer);
             isFinished |= finish;
         }
         if (prioritySequenceNumber != -1) {
             notifyPriorityEvent(prioritySequenceNumber);
         }
         notifyDataAvailable();
-    }
-
-    private boolean add(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish) {
-        checkNotNull(bufferConsumer);
-
-        final boolean notifyDataAvailable;
-        int prioritySequenceNumber = -1;
-        synchronized (buffers) {
-            if (isFinished || isReleased) {
-                bufferConsumer.close();
-                return false;
-            }
-
-            // Add the bufferConsumer and update the stats
-            if (addBuffer(bufferConsumer, partialRecordLength)) {
-                prioritySequenceNumber = sequenceNumber;
-            }
-            updateStatistics(bufferConsumer);
-            increaseBuffersInBacklog(bufferConsumer);
-            notifyDataAvailable = finish || shouldNotifyDataAvailable();
-
-            isFinished |= finish;
-        }
-
-        if (prioritySequenceNumber != -1) {
-            notifyPriorityEvent(prioritySequenceNumber);
-        }
-        if (notifyDataAvailable) {
-            notifyDataAvailable();
-        }
-
-        return true;
     }
 
     private boolean addBuffer(BufferConsumer bufferConsumer, int partialRecordLength) {

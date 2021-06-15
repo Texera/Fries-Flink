@@ -900,7 +900,7 @@ public class Task
                 // referenced
                 CompletableFuture<?> shutdownFuture = this.invokable.shutdown();
                 if(shutdownFuture != null){
-                    shutdownFuture.join();
+                    shutdownFuture.get();
                 }
                 Thread.sleep(1000);
                 this.invokable = null;

@@ -66,8 +66,8 @@ public class JoinWithStaticExample {
                 "--test.simulate_failure.max_failures", String.valueOf(1),
                 "--test.simulate_failure.num_records", "100",
                 "--print-level", "0",
-                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
-                "--enable-logging","true",
+                "--hdfs-log-storage","hdfs://10.128.0.8:8020/",
+                "--enable-logging","false",
         });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -158,7 +158,7 @@ public class JoinWithStaticExample {
         @Override
         public void run(SourceContext<Long> ctx) throws InterruptedException {
             long count = 0;
-            while (running && count < 20000) {
+            while (running && count < 40000) {
                 ctx.collect(count);
                 count++;
             }
@@ -178,7 +178,7 @@ public class JoinWithStaticExample {
         public void run(SourceContext<Long> ctx) throws InterruptedException {
 
             int count = 0;
-            while (running && count < 600) {
+            while (running && count < 300) {
                 ctx.collect((long)count%3);
                 count++;
             }

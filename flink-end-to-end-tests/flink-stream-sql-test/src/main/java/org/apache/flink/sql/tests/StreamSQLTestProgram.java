@@ -79,9 +79,8 @@ public class StreamSQLTestProgram {
 
         ParameterTool params = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--environment.parallelism", "2",
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
-                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
+                "--hdfs-log-storage","hdfs://10.128.0.8:8020/",
                 "--enable-logging","true",
                 "--print-level", "0"});
 
@@ -95,8 +94,9 @@ public class StreamSQLTestProgram {
         final StreamExecutionEnvironment sEnv =
                 StreamExecutionEnvironment.getExecutionEnvironment();
 
+        sEnv.setParallelism(3);
         sEnv.getConfig().setGlobalJobParameters(params);
-//        sEnv.enableCheckpointing(4000);
+        sEnv.enableCheckpointing(4000);
         sEnv.getConfig().setAutoWatermarkInterval(1000);
 
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(sEnv, settings);
