@@ -294,12 +294,12 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
         // Step (1): Prepare the checkpoint, allow operators to do some pre-barrier work.
         //           The pre-barrier work should be nothing or minimal in the common case.
         operatorChain.prepareSnapshotPreBarrier(metadata.getCheckpointId());
-
+        System.out.println(logName+" prepared checkpoint barriers");
         // Step (2): Send the checkpoint barrier downstream
         operatorChain.broadcastEvent(
                 new CheckpointBarrier(metadata.getCheckpointId(), metadata.getTimestamp(), options),
                 options.isUnalignedCheckpoint());
-
+        System.out.println(logName+" broadcast checkpoint barriers");
         // Step (3): Prepare to spill the in-flight buffers for input and output
         if (options.isUnalignedCheckpoint()) {
             // output data already written while broadcasting event
@@ -316,7 +316,7 @@ class SubtaskCheckpointCoordinatorImpl implements SubtaskCheckpointCoordinator {
             if (takeSnapshotSync(
                     snapshotFutures, metadata, metrics, options, operatorChain, isRunning)) {
                 finishAndReportAsync(snapshotFutures, metadata, metrics, isRunning);
-                //System.out.println(logName+" checkpoint progress: fully completed");
+                System.out.println(logName+" checkpoint progress: fully completed");
             } else {
                 cleanup(snapshotFutures, metadata, metrics, new Exception("Checkpoint declined"));
             }

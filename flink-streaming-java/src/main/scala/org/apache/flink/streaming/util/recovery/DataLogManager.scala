@@ -87,6 +87,9 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
 
   def inputEvent[T](token:Int, channel:InputChannelInfo, elem:BufferOrEvent): Int ={
     if(elem.getEvent.isInstanceOf[CheckpointBarrier]){
+      if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_DIRECT_CALL)) {
+        println(s"${logWriter.storage.name} process event = $elem directly")
+      }
       inners(token).inputEvent(channel, elem)
       return PROCESSED_EVENT
     }

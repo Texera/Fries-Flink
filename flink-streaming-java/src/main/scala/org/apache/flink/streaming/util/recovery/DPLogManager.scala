@@ -36,7 +36,7 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
 
   def inputControl(mail:Mail): Unit ={
     if(!mailResolver.canHandle(mail.descriptionFormat)){
-      if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_DIRECT_CALL)) {
+      if (RecoveryUtils.needPrint(RecoveryUtils.PRINT_DIRECT_CALL) && mail.descriptionFormat.contains("checkpoint")) {
         println(s"${logWriter.storage.name} running ${mail.descriptionFormat} directly")
       }
       mail.run()
