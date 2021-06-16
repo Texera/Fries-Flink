@@ -66,6 +66,7 @@ public abstract class AbstractStreamTaskNetworkInput<
     private R currentRecordDeserializer = null;
     private DataLogManager dataLogManager = null;
     private int dataLogToken;
+    private Object stepCursor;
 
     public AbstractStreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
@@ -91,6 +92,7 @@ public abstract class AbstractStreamTaskNetworkInput<
             this.dataLogToken = dataLogManager.registerInput(this::processElement, checkpointedInputGate::handleEvent);
             this.dataLogManager = dataLogManager;
             checkpointedInputGate.attachDataLogManager(dataLogToken, dataLogManager);
+            this.stepCursor = dataLogManager.stepCursor();
         }
     }
 
@@ -117,7 +119,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                     }
                     if(dataLogManager.isEnabled()){
                         int ret;
-                        synchronized (dataLogManager.stepCursor()) {
+                        synchronized (stepCursor) {
                            ret = dataLogManager.inputData(
                                     dataLogToken,
                                     lastChannel,
@@ -150,7 +152,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                     }
                     if(dataLogManager.isEnabled()){
                         int ret;
-                        synchronized (dataLogManager.stepCursor()){
+                        synchronized (stepCursor){
                             ret = dataLogManager.inputEvent(dataLogToken,bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get());
                         }
                         if(ret == DataLogManager.PROCESSED_EVENT()){
@@ -166,7 +168,7 @@ public abstract class AbstractStreamTaskNetworkInput<
             } else {
                 if(dataLogManager.isEnabled()){
                     int ret;
-                    synchronized (dataLogManager.stepCursor()){
+                    synchronized (stepCursor){
                         ret = dataLogManager.recoverUpstream();
                     }
                     if(ret == DataLogManager.PROCESSED_EVENT()){

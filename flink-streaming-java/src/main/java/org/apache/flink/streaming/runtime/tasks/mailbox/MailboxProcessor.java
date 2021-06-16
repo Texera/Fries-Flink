@@ -105,6 +105,7 @@ public class MailboxProcessor implements Closeable {
     private final StreamTaskActionExecutor actionExecutor;
 
     private DPLogManager dpLogManager;
+    private Object stepCursor;
 
     public boolean isPaused = false;
 
@@ -152,6 +153,7 @@ public class MailboxProcessor implements Closeable {
 
     public void registerLogManager(DPLogManager dpLogManager){
         this.dpLogManager = dpLogManager;
+        this.stepCursor = dpLogManager.stepCursor();
     }
 
     /**
@@ -225,7 +227,7 @@ public class MailboxProcessor implements Closeable {
         while (isNextLoopPossible()) {
             // The blocking `processMail` call will not return until default action is available.
             if(dpLogManager.isEnabled()) {
-                synchronized (dpLogManager.stepCursor()) {
+                synchronized (stepCursor) {
                     dpLogManager.recoverControl();
                 }
             }
@@ -372,7 +374,7 @@ public class MailboxProcessor implements Closeable {
             maybePauseIdleTimer();
             Mail m = maybeMail.get();
             if(dpLogManager.isEnabled()){
-                synchronized (dpLogManager.stepCursor()) {
+                synchronized (stepCursor) {
                     dpLogManager.recoverControl();
                     dpLogManager.inputControl(m);
                 }
@@ -395,7 +397,7 @@ public class MailboxProcessor implements Closeable {
             }
             Mail m = maybeMail.get();
             if(dpLogManager.isEnabled()){
-                synchronized (dpLogManager.stepCursor()) {
+                synchronized (stepCursor) {
                     dpLogManager.recoverControl();
                     dpLogManager.inputControl(m);
                 }

@@ -283,12 +283,10 @@ public class StreamSQLTestProgram {
             long offsetMS = offsetSeconds * 2000L;
 
             while (ms < durationMs) {
-                synchronized (ctx.getCheckpointLock()) {
                     for (int i = 0; i < numKeys; i++) {
                         ctx.collect(Row.of(i, ms + offsetMS, "Some payload..."));
                     }
                     ms += sleepMs;
-                }
                 Thread.sleep(sleepMs);
             }
         }
