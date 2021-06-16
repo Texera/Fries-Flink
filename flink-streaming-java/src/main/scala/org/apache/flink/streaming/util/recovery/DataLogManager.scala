@@ -90,7 +90,7 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
       if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_DIRECT_CALL)) {
         println(s"${logWriter.storage.name} process event = $elem directly")
       }
-      inners(token).inputEvent(channel, elem)
+      inners(token).eventHandler.accept(elem)
       return PROCESSED_EVENT
     }
     if(!stepCursor.isRecoveryCompleted) {
@@ -158,7 +158,7 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) exte
   }
 
   class DataLogManagerInner[T](dataHandler: ThrowingTriConsumer[InputChannelInfo,StreamElement, DataOutput[T], _],
-                               eventHandler: ThrowingConsumer[BufferOrEvent, _]){
+                               val eventHandler: ThrowingConsumer[BufferOrEvent, _]){
 
     def inputDataRecord(channel:InputChannelInfo, elem:StreamElement, output: DataOutput[T]): Unit ={
       if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_PROCESS)) {

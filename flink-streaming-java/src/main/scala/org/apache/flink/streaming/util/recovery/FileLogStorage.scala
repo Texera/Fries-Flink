@@ -73,6 +73,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
   private val loadedLogs = mutable.ArrayBuffer.empty[LogRecord]
   private val timerOutputs = mutable.ArrayBuffer.empty[Long]
   private var stepCursor:Long = 0L
+  private var lastTime = 0L
 
   override def getStepCursor: Long = {
     if(loadedLogs.isEmpty){
@@ -101,7 +102,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
       while (input.isAvailable) {
         try {
           val binary = input.read()
-          val message = globalSerializer.fromBinary(binary)
+          val message = globalSerializer.fromBytes(binary)
           message match {
             case cursor: DPCursor =>
               stepCursor = cursor.idx
@@ -114,6 +115,16 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
               stepCursor = payload.step
             case time:java.lang.Long =>
               timerOutputs.append(time)
+              lastTime = time
+            case t:java.lang.Integer =>
+              lastTime += t
+              timerOutputs.append(lastTime)
+            case t:java.lang.Short =>
+              lastTime += t
+              timerOutputs.append(lastTime)
+            case t:java.lang.Byte =>
+              lastTime += t
+              timerOutputs.append(lastTime)
             case other =>
               throw new RuntimeException(
                 "cannot deserialize log: " + (binary.map(_.toChar)).mkString
@@ -133,9 +144,18 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
   override def write(record: LogRecord): Unit = {
     record match{
       case TimerOutput(time) =>
-        output.write(globalSerializer.toBinary(Long.box(time)))
+        if(time - lastTime <= Byte.MaxValue){
+          output.write(globalSerializer.toBytesWithClass(Byte.box((time-lastTime).toByte)))
+        }else if(time -lastTime <= Short.MaxValue){
+          output.write(globalSerializer.toBytesWithClass(Short.box((time-lastTime).toShort)))
+        }else if(time - lastTime <= Int.MaxValue){
+          output.write(globalSerializer.toBytesWithClass(Int.box((time-lastTime).toInt)))
+        }else{
+          output.write(globalSerializer.toBytesWithClass(Long.box(time)))
+        }
+        lastTime = time
       case _ =>
-        output.write(globalSerializer.toBinary(record))
+        output.write(globalSerializer.toBytesWithClass(record))
     }
   }
 
