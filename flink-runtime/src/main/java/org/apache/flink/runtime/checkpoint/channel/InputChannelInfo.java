@@ -40,6 +40,11 @@ public class InputChannelInfo implements Serializable {
     public final int inputChannelIdx;
     public ResultPartitionID fromPartition;
 
+    public InputChannelInfo(){
+        gateIdx = 0;
+        inputChannelIdx = 0;
+    }
+
     public InputChannelInfo(int gateIdx, int inputChannelIdx, ResultPartitionID fromPartition) {
         this.gateIdx = gateIdx;
         this.inputChannelIdx = inputChannelIdx;

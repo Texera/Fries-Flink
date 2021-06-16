@@ -132,6 +132,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
           }
         } catch {
           case e: Exception =>
+            e.printStackTrace()
             input.close()
             throw e
         }
