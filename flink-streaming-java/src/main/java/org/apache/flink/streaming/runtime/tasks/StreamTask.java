@@ -1074,7 +1074,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             CheckpointMetaData checkpointMetaData, CheckpointOptions checkpointOptions) {
 
         CompletableFuture<Boolean> result = new CompletableFuture<>();
-        result.complete(true);
         mainMailboxExecutor.execute(
                 () -> {
                     latestAsyncCheckpointStartDelayNanos =
@@ -1083,7 +1082,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                                             0,
                                             System.currentTimeMillis()
                                                     - checkpointMetaData.getTimestamp());
-                        triggerCheckpoint(checkpointMetaData, checkpointOptions);
+                    result.complete(triggerCheckpoint(checkpointMetaData, checkpointOptions));
                 },
                 "checkpoint",
                 checkpointMetaData,
