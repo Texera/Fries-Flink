@@ -310,6 +310,8 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
                 windowAssigner.assignWindows(
                         element.getValue(), element.getTimestamp(), windowAssignerContext);
 
+        //System.out.println("windows: "+elementWindows.toArray()[0]+"elem: "+element+"cursor: "+ getContainingTask().stepCursor.getCursor());
+
         // if element is handled by none of assigned elementWindows
         boolean isSkippedElement = true;
 

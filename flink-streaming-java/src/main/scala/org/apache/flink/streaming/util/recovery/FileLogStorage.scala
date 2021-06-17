@@ -94,7 +94,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
     if(loadedLogs.isEmpty){
       getLogs
     }
-    loadedTimers.toArray
+    loadedWindows.toArray
   }
 
   override def getLogs: Iterable[LogRecord] = {

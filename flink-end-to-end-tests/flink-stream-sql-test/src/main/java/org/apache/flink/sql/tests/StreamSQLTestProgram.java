@@ -82,7 +82,7 @@ public class StreamSQLTestProgram {
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
                 "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
                 "--enable-logging","true",
-                "--print-level", "8"});
+                "--print-level", "0"});
 
         String outputPath = "./";
 
@@ -102,9 +102,9 @@ public class StreamSQLTestProgram {
         final StreamTableEnvironment tEnv = StreamTableEnvironment.create(sEnv, settings);
 
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table1", new GeneratorTableSource(10, 1000, 600, 0));
+                .registerTableSourceInternal("table1", new GeneratorTableSource(40, 1000, 600, 0));
         ((TableEnvironmentInternal) tEnv)
-                .registerTableSourceInternal("table2", new GeneratorTableSource(5, 1000, 300, 0));
+                .registerTableSourceInternal("table2", new GeneratorTableSource(10, 1000, 300, 0));
 
         int overWindowSizeSeconds = 1;
         int tumbleWindowSizeSeconds = 10;
