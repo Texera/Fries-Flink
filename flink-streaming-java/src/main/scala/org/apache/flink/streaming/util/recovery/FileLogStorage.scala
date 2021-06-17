@@ -1,6 +1,7 @@
 package org.apache.flink.streaming.util.recovery
 
 import java.io.{DataInputStream, DataOutputStream}
+import org.apache.flink.api.java.tuple.Tuple2
 
 import com.twitter.chill.akka.AkkaSerializer
 import org.apache.flink.runtime.recovery.{AbstractLogStorage, RecoveryUtils}
@@ -71,9 +72,9 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
 
   private val globalSerializer = SerializeUtils.getSerializer
   private val loadedLogs = mutable.ArrayBuffer.empty[LogRecord]
-  private val timerOutputs = mutable.ArrayBuffer.empty[Long]
+  private val loadedWindows = mutable.ArrayBuffer.empty[Tuple2[java.lang.Long,java.lang.Long]]
+  private val loadedTimers = mutable.ArrayBuffer.empty[Tuple2[java.lang.Long,java.lang.Long]]
   private var stepCursor:Long = 0L
-  private var lastTime = 0L
 
   override def getStepCursor: Long = {
     if(loadedLogs.isEmpty){
@@ -82,11 +83,18 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
     stepCursor
   }
 
-  override def getTimerOutputs: Array[Long] = {
+  override def getLoggedTimers: Array[Tuple2[java.lang.Long, java.lang.Long]] = {
     if(loadedLogs.isEmpty){
       getLogs
     }
-    timerOutputs.toArray
+    loadedTimers.toArray
+  }
+
+  override def getLoggedWindows: Array[Tuple2[java.lang.Long, java.lang.Long]] = {
+    if(loadedLogs.isEmpty){
+      getLogs
+    }
+    loadedTimers.toArray
   }
 
   override def getLogs: Iterable[LogRecord] = {
@@ -111,20 +119,12 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
               loadedLogs.append(f)
             case ctrl: ControlRecord =>
               loadedLogs.append(ctrl)
+            case timer: TimerStart=>
+              loadedTimers.append(new Tuple2(timer.startTime, timer.startCursor))
+            case window: WindowStart =>
+              loadedWindows.append(new Tuple2(window.startTime, window.startCursor))
             case payload: UpdateStepCursor =>
               stepCursor = payload.step
-            case time:java.lang.Long =>
-              timerOutputs.append(time)
-              lastTime = time
-            case t:java.lang.Integer =>
-              lastTime += t
-              timerOutputs.append(lastTime)
-            case t:java.lang.Short =>
-              lastTime += t
-              timerOutputs.append(lastTime)
-            case t:java.lang.Byte =>
-              lastTime += t
-              timerOutputs.append(lastTime)
             case other =>
               throw new RuntimeException(
                 "cannot deserialize log: " + (binary.map(_.toChar)).mkString
@@ -143,21 +143,7 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
   }
 
   override def write(record: LogRecord): Unit = {
-    record match{
-      case TimerOutput(time) =>
-        if(time - lastTime <= Byte.MaxValue){
-          output.write(globalSerializer.toBytesWithClass(Byte.box((time-lastTime).toByte)))
-        }else if(time -lastTime <= Short.MaxValue){
-          output.write(globalSerializer.toBytesWithClass(Short.box((time-lastTime).toShort)))
-        }else if(time - lastTime <= Int.MaxValue){
-          output.write(globalSerializer.toBytesWithClass(Int.box((time-lastTime).toInt)))
-        }else{
-          output.write(globalSerializer.toBytesWithClass(Long.box(time)))
-        }
-        lastTime = time
-      case _ =>
-        output.write(globalSerializer.toBytesWithClass(record))
-    }
+    output.write(globalSerializer.toBytesWithClass(record))
   }
 
   override def commit(): Unit = {

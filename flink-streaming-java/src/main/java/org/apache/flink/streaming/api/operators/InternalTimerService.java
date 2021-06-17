@@ -19,6 +19,8 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.function.BiConsumerWithException;
 
 /**
@@ -37,6 +39,8 @@ public interface InternalTimerService<N> {
 
     /** Returns the current event-time watermark. */
     long currentWatermark();
+
+    void initLog(AsyncLogWriter writer, StepCursor stepCursor);
 
     /**
      * Registers a timer to be fired when processing time passes the given time. The namespace you

@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.api.operators.sorted.state;
 
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
 import org.apache.flink.runtime.state.PriorityComparator;
 import org.apache.flink.streaming.api.operators.InternalTimer;
@@ -82,6 +84,11 @@ public class BatchExecutionInternalTimeService<K, N> implements InternalTimerSer
     @Override
     public long currentWatermark() {
         return currentWatermark;
+    }
+
+    @Override
+    public void initLog(AsyncLogWriter writer, StepCursor stepCursor) {
+        // do nothing;
     }
 
     @Override

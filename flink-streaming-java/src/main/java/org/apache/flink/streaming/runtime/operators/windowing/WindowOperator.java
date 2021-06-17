@@ -44,6 +44,8 @@ import org.apache.flink.api.java.typeutils.TypeExtractor;
 import org.apache.flink.api.java.typeutils.runtime.TupleSerializer;
 import org.apache.flink.metrics.Counter;
 import org.apache.flink.metrics.MetricGroup;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.runtime.state.DefaultKeyedStateStore;
 import org.apache.flink.runtime.state.KeyedStateBackend;
 import org.apache.flink.runtime.state.VoidNamespace;
@@ -219,10 +221,16 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
     public void open() throws Exception {
         super.open();
 
+        AsyncLogWriter writer = getContainingTask().writer;
+        StepCursor cursor = getContainingTask().stepCursor;
+
         this.numLateRecordsDropped = metrics.counter(LATE_ELEMENTS_DROPPED_METRIC_NAME);
         timestampedCollector = new TimestampedCollector<>(output);
 
         internalTimerService = getInternalTimerService("window-timers", windowSerializer, this);
+
+        internalTimerService.initLog(writer, cursor);
+        windowAssigner.initLog(writer, cursor);
 
         triggerContext = new Context(null, null);
         processContext = new WindowContext(null);
@@ -572,6 +580,7 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
     /** Emits the contents of the given window using the {@link InternalWindowFunction}. */
     @SuppressWarnings("unchecked")
     private void emitWindowContents(W window, ACC contents) throws Exception {
+        windowAssigner.emitWindowLogRecord(window);
         timestampedCollector.setAbsoluteTimestamp(window.maxTimestamp());
         processContext.window = window;
         userFunction.process(

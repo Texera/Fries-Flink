@@ -21,6 +21,8 @@ package org.apache.flink.streaming.api.windowing.assigners;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.windows.Window;
@@ -68,6 +70,14 @@ public abstract class WindowAssigner<T, W extends Window> implements Serializabl
      * otherwise.
      */
     public abstract boolean isEventTime();
+
+    public void emitWindowLogRecord(Window w){
+        //do nothing
+    }
+
+    public void initLog(AsyncLogWriter writer, StepCursor stepCursor){
+        //do nothing
+    }
 
     /**
      * A context provided to the {@link WindowAssigner} that allows it to query the current

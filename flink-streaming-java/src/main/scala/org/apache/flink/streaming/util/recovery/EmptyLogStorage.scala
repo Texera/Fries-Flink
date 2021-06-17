@@ -1,5 +1,6 @@
 package org.apache.flink.streaming.util.recovery
 
+import org.apache.flink.api.java.tuple
 import org.apache.flink.runtime.recovery.AbstractLogStorage
 
 class EmptyLogStorage(logName: String) extends AbstractLogStorage(logName)  {
@@ -11,9 +12,11 @@ class EmptyLogStorage(logName: String) extends AbstractLogStorage(logName)  {
 
   override def getLogs: Iterable[AbstractLogStorage.LogRecord] = Iterable.empty
 
-  override def getTimerOutputs: Array[Long] = Array.empty
-
   override def clear(): Unit = {}
 
   override def release(): Unit = {}
+
+  override def getLoggedWindows: Array[tuple.Tuple2[java.lang.Long, java.lang.Long]] = Array.empty
+
+  override def getLoggedTimers: Array[tuple.Tuple2[java.lang.Long, java.lang.Long]] = Array.empty
 }

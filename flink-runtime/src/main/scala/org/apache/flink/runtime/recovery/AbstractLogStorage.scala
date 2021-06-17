@@ -4,6 +4,7 @@ import org.apache.flink.runtime.checkpoint.channel.InputChannelInfo
 import org.apache.flink.runtime.recovery.AbstractLogStorage.LogRecord
 
 import scala.collection.mutable
+import org.apache.flink.api.java.tuple.Tuple2
 
 
 object AbstractLogStorage{
@@ -21,8 +22,11 @@ object AbstractLogStorage{
     def this() = this(0, null,0)
   }
   case object ShutdownWriter extends LogRecord
-  case class TimerOutput(time:Long) extends LogRecord{
-    def this() = this(0)
+  case class WindowStart(startTime:Long, startCursor:Long) extends LogRecord{
+    def this() = this(0,0)
+  }
+  case class TimerStart(startTime:Long, startCursor:Long) extends LogRecord{
+    def this() = this(0,0)
   }
 
 
@@ -40,7 +44,9 @@ abstract class AbstractLogStorage(val name:String) {
   // for recovery:
   def getLogs: Iterable[LogRecord]
 
-  def getTimerOutputs: Array[Long]
+  def getLoggedWindows: Array[Tuple2[java.lang.Long,java.lang.Long]]
+
+  def getLoggedTimers: Array[Tuple2[java.lang.Long,java.lang.Long]]
 
   // delete everything
   def clear(): Unit

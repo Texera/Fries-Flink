@@ -269,10 +269,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     private final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
 
-    protected AsyncLogWriter writer;
+    public AsyncLogWriter writer;
     protected MailResolver mailResolver;
     protected DataLogManager dataLogManager;
     public DPLogManager dpLogManager;
+    public StepCursor stepCursor;
     public FutureWrapper isPausedFuture = new FutureWrapper();
     private String logName;
     private HashBiMap<Integer,ProcessingTimeCallback> hackCallbackMap = HashBiMap.create();
@@ -368,7 +369,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             storage = new LocalDiskLogStorage(logName);
         }
         writer = new AsyncLogWriter(storage);
-        StepCursor stepCursor = new StepCursor(storage.getStepCursor(), writer);
+        stepCursor = new StepCursor(storage.getStepCursor(), writer);
         for(ResultPartitionWriter rpWriter: environment.getAllWriters()){
             for(ResultSubpartition sub: ((BufferWritingResultPartition)rpWriter).subpartitions){
                 ((PipelinedSubpartition)sub).registerOutput(writer, stepCursor);
@@ -404,7 +405,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         } else {
             this.timerService = timerService;
         }
-        this.timerService.registerLogWriter(Thread.currentThread().getId(), writer);
         this.systemTimerService = createTimerService("System Time Trigger for " + getName());
         this.channelIOExecutor =
                 Executors.newSingleThreadExecutor(

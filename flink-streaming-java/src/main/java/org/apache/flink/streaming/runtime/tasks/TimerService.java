@@ -38,7 +38,6 @@ import org.apache.flink.runtime.recovery.AsyncLogWriter;
 @Internal
 public interface TimerService extends ProcessingTimeService {
 
-    void registerLogWriter(long id, AsyncLogWriter writer);
 
     /** Returns <tt>true</tt> if the service has been shut down, <tt>false</tt> otherwise. */
     boolean isTerminated();

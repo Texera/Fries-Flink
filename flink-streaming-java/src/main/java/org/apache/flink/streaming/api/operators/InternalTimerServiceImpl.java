@@ -21,6 +21,10 @@ package org.apache.flink.streaming.api.operators;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.common.typeutils.TypeSerializerSchemaCompatibility;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.runtime.recovery.AbstractLogStorage;
+import org.apache.flink.runtime.recovery.AsyncLogWriter;
+import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.runtime.state.InternalPriorityQueue;
 import org.apache.flink.runtime.state.KeyGroupRange;
 import org.apache.flink.runtime.state.KeyGroupedInternalPriorityQueue;
@@ -30,9 +34,13 @@ import org.apache.flink.util.FlinkRuntimeException;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.function.BiConsumerWithException;
 
+
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
 
@@ -87,6 +95,12 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
 
     /** The restored timers snapshot, if any. */
     private InternalTimersSnapshot<K, N> restoredTimersSnapshot;
+
+    private Queue<Tuple2<Long,Long>> triggeredSteps = new ArrayDeque<>();
+
+    private StepCursor cursor;
+
+    private AsyncLogWriter writer;
 
     InternalTimerServiceImpl(
             KeyGroupRange localKeyGroupRange,
@@ -213,19 +227,36 @@ public class InternalTimerServiceImpl<K, N> implements InternalTimerService<N> {
     }
 
     @Override
+    public void initLog(AsyncLogWriter writer, StepCursor stepCursor) {
+        this.writer = writer;
+        this.cursor = stepCursor;
+        this.triggeredSteps = new ArrayDeque<>(Arrays.asList(writer.storage().getLoggedTimers()));
+    }
+
+    @Override
     public void registerProcessingTimeTimer(N namespace, long time) {
+        if(!triggeredSteps.isEmpty() && triggeredSteps.peek().f1 == cursor.getCursor()){
+            long prevTime = triggeredSteps.poll().f0;
+            afterAddTimeToQueue(prevTime);
+            return;
+        }
         InternalTimer<K, N> oldHead = processingTimeTimersQueue.peek();
         if (processingTimeTimersQueue.add(
                 new TimerHeapInternalTimer<>(time, (K) keyContext.getCurrentKey(), namespace))) {
             long nextTriggerTime = oldHead != null ? oldHead.getTimestamp() : Long.MAX_VALUE;
             // check if we need to re-schedule our timer to earlier
             if (time < nextTriggerTime) {
-                if (nextTimer != null) {
-                    nextTimer.cancel(false);
-                }
-                nextTimer = processingTimeService.registerTimer(time, this::onProcessingTime);
+                writer.addLogRecord(new AbstractLogStorage.TimerStart(time, cursor.getCursor()));
+                afterAddTimeToQueue(time);
             }
         }
+    }
+
+    private void afterAddTimeToQueue(long time){
+        if (nextTimer != null) {
+            nextTimer.cancel(false);
+        }
+        nextTimer = processingTimeService.registerTimer(time, this::onProcessingTime);
     }
 
     @Override
