@@ -31,6 +31,7 @@ import org.apache.flink.runtime.io.network.buffer.BufferConsumerWithPartialRecor
 import org.apache.flink.runtime.io.network.logger.NetworkActionsLogger;
 import org.apache.flink.runtime.io.network.partition.consumer.EndOfChannelStateEvent;
 
+import org.apache.flink.runtime.recovery.AbstractLogStorage;
 import org.apache.flink.runtime.recovery.AsyncLogWriter;
 
 import org.apache.flink.runtime.recovery.RecoveryUtils;
@@ -159,6 +160,7 @@ public class PipelinedSubpartition extends ResultSubpartition
 
     private void addAlt(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
         if(RecoveryUtils.isEnabled){
+            writer.addLogRecord(new AbstractLogStorage.UpdateStepCursor(cursor.getCursor()));
             writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
         }else{
             addInner(bufferConsumer, partialRecordLength, finish);

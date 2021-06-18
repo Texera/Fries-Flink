@@ -115,7 +115,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
                 cursorUpdated = false //invalidate flag
                 writeLogRecord(logRecord)
                 persistStepCursor()
-                //storage.commit()
+                storage.commit()
               }
             } else {
               if (buffer.get(buffer.size() - 1) == ShutdownWriter) {
@@ -126,7 +126,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
               batchWrite(buffer)
               persistStepCursor()
               //println(s"writing ${buffer.size} logs at a time")
-              //storage.commit()
+              storage.commit()
               buffer.clear()
             }
             addOutput(CursorUpdate(persistedStepCursor))

@@ -14,7 +14,6 @@ class StepCursor(target:Long, logWriter: AsyncLogWriter) {
 
   def advance(): Unit ={
     _cursor+=1
-    logWriter.addLogRecord(UpdateStepCursor(_cursor))
     if(_cursor == target && _callback != null){
       _callback()
     }
