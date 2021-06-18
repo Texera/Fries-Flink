@@ -159,7 +159,7 @@ public class PipelinedSubpartition extends ResultSubpartition
     }
 
     private void addAlt(BufferConsumer bufferConsumer, int partialRecordLength, boolean finish){
-        if(RecoveryUtils.isEnabled){
+        if(RecoveryUtils.isEnabled && cursor.isRecoveryCompleted()){
             writer.addLogRecord(new AbstractLogStorage.UpdateStepCursor(cursor.getCursor()));
             writer.addOutput(new AsyncLogWriter.OutputBuffer(cursor.getCursor(), index, bufferConsumer, partialRecordLength, finish));
         }else{
