@@ -66,11 +66,11 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
 
     private final WindowStagger windowStagger;
 
-    private HashMap<Long,Long> windowStartMap = new HashMap<>();
-
     private Queue<Tuple2<Long,Long>> loadedWindows = new ArrayDeque<>();
 
-    private HashMap<Long, TimeWindow> currentWindows = new HashMap<>();
+    private TimeWindow currentWindow = null;
+
+    private long currentStart = -1L;
 
     private AsyncLogWriter writer = null;
 
@@ -91,12 +91,14 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
     public Collection<TimeWindow> assignWindows(
             Object element, long timestamp, WindowAssignerContext context) {
 
-        while(!loadedWindows.isEmpty() && loadedWindows.peek().f1 == cursor.getCursor()){
-            Tuple2<Long,Long> t = loadedWindows.poll();
-            currentWindows.put(t.f0, new TimeWindow(t.f0, t.f0+ size));
-        }
-        if(!currentWindows.isEmpty()){
-            return currentWindows.values();
+        if(!cursor.isRecoveryCompleted()){
+            while(!loadedWindows.isEmpty() && loadedWindows.peek().f1 == cursor.getCursor()){
+                Tuple2<Long,Long> t = loadedWindows.poll();
+                currentWindow = new TimeWindow(t.f0, t.f0+ size);
+            }
+            if(currentWindow != null){
+                return Collections.singletonList(currentWindow);
+            }
         }
         final long now = context.getCurrentProcessingTime();
         if (staggerOffset == null) {
@@ -106,9 +108,9 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
         long start =
                 TimeWindow.getWindowStartWithOffset(
                         now, (globalOffset + staggerOffset) % size, size);
-        if(!windowStartMap.containsKey(start)){
-            windowStartMap.put(start, cursor.getCursor());
+        if(currentStart != start){
             writer.addLogRecord(new AbstractLogStorage.WindowStart(start, cursor.getCursor()));
+            currentStart = start;
         }
         return Collections.singletonList(new TimeWindow(start, start + size));
     }
@@ -117,12 +119,6 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
         return size;
     }
 
-    @Override
-    public void emitWindowLogRecord(Window w) {
-        long key = ((TimeWindow)w).getStart();
-        windowStartMap.remove(key);
-        currentWindows.remove(key);
-    }
 
     @Override
     public Trigger<Object, TimeWindow> getDefaultTrigger(StreamExecutionEnvironment env) {

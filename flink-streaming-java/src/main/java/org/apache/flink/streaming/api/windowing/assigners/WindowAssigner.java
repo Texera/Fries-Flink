@@ -71,10 +71,6 @@ public abstract class WindowAssigner<T, W extends Window> implements Serializabl
      */
     public abstract boolean isEventTime();
 
-    public void emitWindowLogRecord(Window w){
-        //do nothing
-    }
-
     public void initLog(AsyncLogWriter writer, StepCursor stepCursor){
         //do nothing
     }

@@ -582,7 +582,6 @@ public class WindowOperator<K, IN, ACC, OUT, W extends Window>
     /** Emits the contents of the given window using the {@link InternalWindowFunction}. */
     @SuppressWarnings("unchecked")
     private void emitWindowContents(W window, ACC contents) throws Exception {
-        windowAssigner.emitWindowLogRecord(window);
         timestampedCollector.setAbsoluteTimestamp(window.maxTimestamp());
         processContext.window = window;
         userFunction.process(
