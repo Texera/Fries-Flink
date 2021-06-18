@@ -96,7 +96,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
     loggingExecutor.submit(new Runnable() {
       def run(): Unit = {
         try {
-          Thread.currentThread().setPriority(Thread.MAX_PRIORITY)
+          //Thread.currentThread().setPriority(Thread.MAX_PRIORITY)
           var isEnded = false
           val buffer = new util.ArrayList[LogRecord]()
           addOutput(CursorUpdate(persistedStepCursor))
