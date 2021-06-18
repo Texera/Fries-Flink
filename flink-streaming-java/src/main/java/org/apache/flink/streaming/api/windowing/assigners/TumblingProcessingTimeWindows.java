@@ -108,6 +108,7 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
                         now, (globalOffset + staggerOffset) % size, size);
         if(!windowStartMap.containsKey(start)){
             windowStartMap.put(start, cursor.getCursor());
+            writer.addLogRecord(new AbstractLogStorage.WindowStart(start, cursor.getCursor()));
         }
         return Collections.singletonList(new TimeWindow(start, start + size));
     }
@@ -119,10 +120,7 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
     @Override
     public void emitWindowLogRecord(Window w) {
         long key = ((TimeWindow)w).getStart();
-        if(windowStartMap.containsKey(key)){
-            writer.addLogRecord(new AbstractLogStorage.WindowStart(key, windowStartMap.get(key)));
-            windowStartMap.remove(key);
-        }
+        windowStartMap.remove(key);
         currentWindows.remove(key);
     }
 
