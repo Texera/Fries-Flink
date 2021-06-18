@@ -73,7 +73,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
               }
               //System.out.println(storage.name+": queue size after updating cursor to ="+myCursor+" is "+myStash.size)
             case elem @ AsyncLogWriter.OutputBuffer(cursor, idx, payload, length, finish) =>
-              if(myCursor >= cursor){
+              if(true){
                 outputCallbackMap(idx).accept(payload, length, finish)
                 //System.out.println(storage.name+" directly process since "+myCursor+" >= "+cursor)
               }else{
