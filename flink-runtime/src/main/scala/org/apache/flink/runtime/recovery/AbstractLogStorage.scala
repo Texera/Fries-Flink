@@ -20,11 +20,13 @@ object AbstractLogStorage{
   case class ChannelOrder(inputNum:Int, newChannelID:InputChannelInfo, lastChannelRecordCount:Int) extends LogRecord{
     def this() = this(0, null,0)
   }
-  case object ShutdownWriter extends LogRecord
   case class TimerOutput(time:Long) extends LogRecord{
     def this() = this(0)
   }
 
+  //special log messages:
+  case object ShutdownWriter extends LogRecord
+  case object TruncateLog extends LogRecord
 
 }
 
@@ -41,6 +43,9 @@ abstract class AbstractLogStorage(val name:String) {
   def getLogs: Iterable[LogRecord]
 
   def getTimerOutputs: Array[Long]
+
+  // delete current log and create a new one for writing
+  def truncateLog():Unit
 
   // delete everything
   def clear(): Unit

@@ -41,6 +41,11 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
     outputMailbox.put(elem)
   }
 
+
+  def takeCheckpoint():Unit = {
+    logRecordQueue.put(TruncateLog)
+  }
+
   def shutdown(): CompletableFuture[Void] ={
     logRecordQueue.put(ShutdownWriter)
     shutdownFuture
@@ -163,6 +168,8 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
         }
       case t:TimerOutput =>
         storage.write(t)
+      case TruncateLog =>
+        storage.truncateLog()
       case ShutdownWriter =>
       //skip
     }

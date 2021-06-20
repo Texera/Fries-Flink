@@ -16,4 +16,6 @@ class EmptyLogStorage(logName: String) extends AbstractLogStorage(logName)  {
   override def clear(): Unit = {}
 
   override def release(): Unit = {}
+
+  override def truncateLog(): Unit = {}
 }
