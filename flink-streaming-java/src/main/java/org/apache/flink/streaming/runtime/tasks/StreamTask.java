@@ -371,11 +371,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         }else{
             storage = new LocalDiskLogStorage(logName);
         }
-        if(System.getProperty("enableLogging").equals("true")){
+        if(System.getProperty("enableLogging")!=null && System.getProperty("enableLogging").equals("true")){
             RecoveryUtils.isEnabled = true;
             System.out.println("enableLogging = true");
             if(storage instanceof EmptyLogStorage){
-                if(!System.getProperty("hdfsLogStorage").isEmpty()){
+                if(System.getProperty("hdfsLogStorage") != null){
                     storage = new HDFSLogStorage(logName, System.getProperty("hdfsLogStorage"));
                     System.out.println("hdfsLogStorage = "+System.getProperty("hdfsLogStorage"));
                 }else{
@@ -383,7 +383,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 }
             }
         }
-        if(!System.getProperty("logLevel").isEmpty()){
+        if(System.getProperty("logLevel") != null){
             RecoveryUtils.printLevel = Integer.parseInt(System.getProperty("logLevel"));
             System.out.println("logLevel = "+System.getProperty("logLevel"));
         }
