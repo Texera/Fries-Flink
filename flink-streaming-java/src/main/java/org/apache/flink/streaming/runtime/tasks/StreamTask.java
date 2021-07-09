@@ -354,17 +354,17 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         TaskInfo info = getEnvironment().getTaskInfo();
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         Map<String, String> globalArgs = environment.getExecutionConfig().getGlobalJobParameters().toMap();
-        AbstractLogStorage storage;
+        AbstractLogStorage storage = new EmptyLogStorage(logName);
         if(globalArgs.containsKey("enable-logging")){
             RecoveryUtils.isEnabled = Boolean.parseBoolean(globalArgs.get("enable-logging"));
             System.out.println("enable-logging = "+globalArgs.get("enable-logging"));
-            if(!RecoveryUtils.isEnabled){
-                storage = new EmptyLogStorage(logName);
-            }else if(globalArgs.containsKey("hdfs-log-storage")){
-                storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
-                System.out.println("hdfs-log-storage = "+globalArgs.get("hdfs-log-storage"));
-            }else{
-                storage = new LocalDiskLogStorage(logName);
+            if(RecoveryUtils.isEnabled) {
+                if (globalArgs.containsKey("hdfs-log-storage")) {
+                    storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
+                    System.out.println("hdfs-log-storage = " + globalArgs.get("hdfs-log-storage"));
+                } else {
+                    storage = new LocalDiskLogStorage(logName);
+                }
             }
         }
         if(globalArgs.containsKey("print-level")){
