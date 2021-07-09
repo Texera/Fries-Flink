@@ -465,8 +465,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 //                                    - ((CheckpointMetaData)x[0]).getTimestamp());
 //            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
 //        });
-        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
-        dataLogManager = new DataLogManager(writer, stepCursor);
+        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor, null);
+        dataLogManager = new DataLogManager(writer, stepCursor, null);
         mailboxProcessor.registerLogManager(dpLogManager);
         if(RecoveryUtils.isEnabled){
             dataLogManager.enable();
