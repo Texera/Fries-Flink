@@ -358,18 +358,18 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         if(globalArgs.containsKey("enable-logging")){
             RecoveryUtils.isEnabled = Boolean.parseBoolean(globalArgs.get("enable-logging"));
             System.out.println("enable-logging = "+globalArgs.get("enable-logging"));
+            if(!RecoveryUtils.isEnabled){
+                storage = new EmptyLogStorage(logName);
+            }else if(globalArgs.containsKey("hdfs-log-storage")){
+                storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
+                System.out.println("hdfs-log-storage = "+globalArgs.get("hdfs-log-storage"));
+            }else{
+                storage = new LocalDiskLogStorage(logName);
+            }
         }
         if(globalArgs.containsKey("print-level")){
             RecoveryUtils.printLevel = Integer.parseInt(globalArgs.get("print-level"));
             System.out.println("print-level = "+globalArgs.get("print-level"));
-        }
-        if(!RecoveryUtils.isEnabled){
-            storage = new EmptyLogStorage(logName);
-        }else if(globalArgs.containsKey("hdfs-log-storage")){
-            storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
-            System.out.println("hdfs-log-storage = "+globalArgs.get("hdfs-log-storage"));
-        }else{
-            storage = new LocalDiskLogStorage(logName);
         }
         if(System.getProperty("enableLogging")!=null && System.getProperty("enableLogging").equals("true")){
             RecoveryUtils.isEnabled = true;
