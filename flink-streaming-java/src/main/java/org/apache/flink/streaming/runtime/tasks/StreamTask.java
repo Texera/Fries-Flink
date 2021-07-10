@@ -383,6 +383,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 }
             }
         }
+        if(System.getProperty("clearOldLog")!=null && System.getProperty("clearOldLog").equals("true")){
+            storage.clear();
+        }
         if(System.getProperty("logLevel") != null){
             RecoveryUtils.printLevel = Integer.parseInt(System.getProperty("logLevel"));
             System.out.println("logLevel = "+System.getProperty("logLevel"));
@@ -471,7 +474,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         if(RecoveryUtils.isEnabled){
             dataLogManager.enable();
         }
-        System.out.println("started "+logName+" at "+System.currentTimeMillis());
+        System.out.println("started "+logName+" at "+System.currentTimeMillis()+"recovery mode = "+!stepCursor.isRecoveryCompleted());
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
 
