@@ -6,7 +6,7 @@ import org.apache.flink.streaming.runtime.tasks.mailbox.Mail
 
 import scala.collection.mutable
 
-class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val stepCursor: StepCursor, var checkpointLock:AnyRef) extends AbstractLogManager  {
+class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val stepCursor: StepCursor) extends AbstractLogManager  {
 
   val controlQueue = new mutable.Queue[Mail]()
   val currentSender = "anywhere"
@@ -14,10 +14,12 @@ class DPLogManager(logWriter: AsyncLogWriter, mailResolver: MailResolver, val st
   val orderingManager = new FIFOManager[Mail, String]((s, m) => {
       controlQueue.enqueue(m)
   })
-
+  private var checkpointLock:AnyRef = _
   def setCheckpointLock(obj:AnyRef): Unit = {
     checkpointLock = obj
   }
+
+  def getCheckpointLock:AnyRef = checkpointLock
 
 
   // For recovery, only need to replay control messages, and then it's done

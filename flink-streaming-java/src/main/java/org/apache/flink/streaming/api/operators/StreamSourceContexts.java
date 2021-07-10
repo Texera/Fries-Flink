@@ -375,7 +375,6 @@ public class StreamSourceContexts {
 
         private DPLogManager dpLogManager;
         private FutureWrapper isPausedFuture;
-        private Object stepCursor;
 
         /**
          * Create a watermark context.
@@ -409,10 +408,9 @@ public class StreamSourceContexts {
             if(dpLogManager!=null) {
                 this.dpLogManager = dpLogManager;
             }else{
-                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L, null), null);
+                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L, null));
             }
             this.isPausedFuture = isPausedFuture;
-            this.stepCursor = dpLogManager.stepCursor();
             scheduleNextIdleDetectionTask();
         }
 

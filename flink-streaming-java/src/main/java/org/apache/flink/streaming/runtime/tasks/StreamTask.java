@@ -468,9 +468,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 //                                    - ((CheckpointMetaData)x[0]).getTimestamp());
 //            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
 //        });
-        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor, null);
-        dataLogManager = new DataLogManager(writer, stepCursor, null);
-        mailboxProcessor.registerLogManager(dpLogManager);
+        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
+        dataLogManager = new DataLogManager(writer, stepCursor);
         if(RecoveryUtils.isEnabled){
             dataLogManager.enable();
         }
@@ -668,6 +667,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     void executeRestore() throws Exception {
+        mailboxProcessor.registerLogManager(dpLogManager);
         if (isRunning) {
             LOG.debug("Re-restore attempt rejected.");
             return;

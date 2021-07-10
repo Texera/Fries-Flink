@@ -18,7 +18,7 @@ object DataLogManager{
 }
 
 
-class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor, var checkpointLock:AnyRef) extends AbstractLogManager {
+class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor) extends AbstractLogManager {
 
   private val prevOrders = new mutable.Queue[(Int,InputChannelInfo)]()
   private val prevCounts = new mutable.Queue[Int]()
@@ -27,10 +27,13 @@ class DataLogManager(logWriter: AsyncLogWriter, val stepCursor: StepCursor, var 
   private var recordCount = 0
   private var lastBuffer:BufferOrEvent = _
 
+  private var checkpointLock:AnyRef = _
+
   def setCheckpointLock(obj:AnyRef): Unit = {
     checkpointLock = obj
   }
 
+  def getCheckpointLock:AnyRef = checkpointLock
   def getName:String = logWriter.storage.name
 
   logWriter.storage.getLogs.foreach {
