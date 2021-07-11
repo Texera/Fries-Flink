@@ -161,10 +161,8 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
           cursorUpdated = true
           persistedStepCursor = cursor
         }
-      case timer:TimerStart =>
-        storage.write(timer)
-      case window:WindowStart =>
-        storage.write(window)
+      case t:TimerOutput =>
+        storage.write(t)
       case ShutdownWriter =>
       //skip
     }

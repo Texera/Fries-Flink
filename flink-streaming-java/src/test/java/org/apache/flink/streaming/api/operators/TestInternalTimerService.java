@@ -19,8 +19,6 @@
 package org.apache.flink.streaming.api.operators;
 
 import org.apache.flink.annotation.Internal;
-import org.apache.flink.runtime.recovery.AsyncLogWriter;
-import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.function.BiConsumerWithException;
 
 import java.util.ArrayList;
@@ -67,11 +65,6 @@ public class TestInternalTimerService<K, N> implements InternalTimerService<N> {
     @Override
     public long currentWatermark() {
         return currentWatermark;
-    }
-
-    @Override
-    public void initLog(AsyncLogWriter writer, StepCursor stepCursor) {
-        //do nothing
     }
 
     @Override

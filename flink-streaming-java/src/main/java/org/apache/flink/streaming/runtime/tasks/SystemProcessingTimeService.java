@@ -65,6 +65,9 @@ public class SystemProcessingTimeService implements TimerService {
 
     private final CompletableFuture<Void> quiesceCompletedFuture;
 
+    private HashMap<Long, Queue<Long>> outputQueues = new HashMap<>();
+    private HashMap<Long, AsyncLogWriter> writers = new HashMap<>();
+
     @VisibleForTesting
     SystemProcessingTimeService(ExceptionHandler exceptionHandler) {
         this(exceptionHandler, null);
@@ -92,7 +95,19 @@ public class SystemProcessingTimeService implements TimerService {
 
     @Override
     public long getCurrentProcessingTime() {
+        long id = Thread.currentThread().getId();
+        if(outputQueues.containsKey(id)){
+            if(outputQueues.get(id).isEmpty()){
+                long res = System.currentTimeMillis();
+                writers.get(id).addLogRecord(new AbstractLogStorage.TimerOutput(res));
+                return res;
+            }else{
+                Long res = outputQueues.get(id).poll();
+                return res == null? 0: res;
+            }
+        }else{
             return System.currentTimeMillis();
+        }
     }
 
     /**
@@ -176,6 +191,15 @@ public class SystemProcessingTimeService implements TimerService {
         return status.get() == STATUS_ALIVE;
     }
 
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        writers.put(id, writer);
+        Queue<Long> queue = new ArrayDeque<Long>();
+        for(long l: writer.storage().getTimerOutputs()){
+            queue.add(l);
+        }
+        outputQueues.put(id,queue);
+    }
 
     @Override
     public boolean isTerminated() {

@@ -29,8 +29,6 @@ public class SerializeUtils {
                     kryo.register(IntermediateResultPartitionID.class);
                     kryo.register(IntermediateDataSetID.class);
                     kryo.register(AbstractID.class);
-                    kryo.register(AbstractLogStorage.TimerStart.class);
-                    kryo.register(AbstractLogStorage.WindowStart.class);
                 }
             });
             serializer = KryoPool.withByteArrayOutputStream(4* Runtime.getRuntime().availableProcessors(), init);

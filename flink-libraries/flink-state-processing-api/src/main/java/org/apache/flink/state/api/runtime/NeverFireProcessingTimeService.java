@@ -56,6 +56,10 @@ public final class NeverFireProcessingTimeService implements TimerService {
         return FUTURE;
     }
 
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        //do nothing since it never fire
+    }
 
     @Override
     public boolean isTerminated() {

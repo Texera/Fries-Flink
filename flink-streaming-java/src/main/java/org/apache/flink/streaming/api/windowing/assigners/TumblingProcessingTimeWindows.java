@@ -21,26 +21,14 @@ package org.apache.flink.streaming.api.windowing.assigners;
 import org.apache.flink.annotation.PublicEvolving;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
-import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.runtime.recovery.AbstractLogStorage;
-import org.apache.flink.runtime.recovery.AsyncLogWriter;
-import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.triggers.ProcessingTimeTrigger;
 import org.apache.flink.streaming.api.windowing.triggers.Trigger;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.api.windowing.windows.Window;
 
-
-import java.util.ArrayDeque;
-import scala.collection.JavaConversions.*;
-
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Queue;
 
 /**
  * A {@link WindowAssigner} that windows elements into windows based on the current system time of
@@ -66,16 +54,6 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
 
     private final WindowStagger windowStagger;
 
-    private Queue<Tuple2<Long,Long>> loadedWindows = new ArrayDeque<>();
-
-    private TimeWindow currentWindow = null;
-
-    private long currentStart = -1L;
-
-    private AsyncLogWriter writer = null;
-
-    private StepCursor cursor = null;
-
     private TumblingProcessingTimeWindows(long size, long offset, WindowStagger windowStagger) {
         if (Math.abs(offset) >= size) {
             throw new IllegalArgumentException(
@@ -90,16 +68,6 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
     @Override
     public Collection<TimeWindow> assignWindows(
             Object element, long timestamp, WindowAssignerContext context) {
-
-        if(!cursor.isRecoveryCompleted()){
-            while(!loadedWindows.isEmpty() && loadedWindows.peek().f1 == cursor.getCursor()){
-                Tuple2<Long,Long> t = loadedWindows.poll();
-                currentWindow = new TimeWindow(t.f0, t.f0+ size);
-            }
-            if(currentWindow != null){
-                return Collections.singletonList(currentWindow);
-            }
-        }
         final long now = context.getCurrentProcessingTime();
         if (staggerOffset == null) {
             staggerOffset =
@@ -108,10 +76,6 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
         long start =
                 TimeWindow.getWindowStartWithOffset(
                         now, (globalOffset + staggerOffset) % size, size);
-        if(currentStart != start){
-            writer.addLogRecord(new AbstractLogStorage.WindowStart(start, cursor.getCursor()));
-            currentStart = start;
-        }
         return Collections.singletonList(new TimeWindow(start, start + size));
     }
 
@@ -119,17 +83,9 @@ public class TumblingProcessingTimeWindows extends WindowAssigner<Object, TimeWi
         return size;
     }
 
-
     @Override
     public Trigger<Object, TimeWindow> getDefaultTrigger(StreamExecutionEnvironment env) {
         return ProcessingTimeTrigger.create();
-    }
-
-    @Override
-    public void initLog(AsyncLogWriter writer, StepCursor stepCursor) {
-        this.writer = writer;
-        this.cursor = stepCursor;
-        this.loadedWindows = new ArrayDeque<>(Arrays.asList(writer.storage().getLoggedWindows()));
     }
 
     @Override

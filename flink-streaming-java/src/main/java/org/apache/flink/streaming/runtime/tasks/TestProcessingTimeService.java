@@ -130,6 +130,10 @@ public class TestProcessingTimeService implements TimerService {
         return scheduleAtFixedRate(callback, initialDelay, period);
     }
 
+    @Override
+    public void registerLogWriter(long id, AsyncLogWriter writer) {
+        //do nothing
+    }
 
     @Override
     public boolean isTerminated() {
