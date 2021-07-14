@@ -172,7 +172,9 @@ abstract class FileLogStorage(logName: String) extends AbstractLogStorage(logNam
 
   override def clear(): Unit = {
     if (fileExists) {
+      output.close()
       deleteFile()
+      output = new ByteArrayWriter(getOutputStream)
     }
   }
 
