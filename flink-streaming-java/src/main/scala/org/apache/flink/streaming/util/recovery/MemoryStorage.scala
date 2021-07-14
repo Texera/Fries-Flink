@@ -16,14 +16,12 @@ object MemoryStorage{
 class MemoryStorage(logName: String) extends AbstractLogStorage(logName)  {
 
   var logs = new ArrayBuffer[LogRecord]()
-  var loggedWindows = new ArrayBuffer[tuple.Tuple2[java.lang.Long, java.lang.Long]]()
-  var loggedTimers = new ArrayBuffer[tuple.Tuple2[java.lang.Long, java.lang.Long]]()
+  var loggedTimeroutputs = new ArrayBuffer[Long]()
   var loggedStepCursor:Long = 0
 
   if(globalMap.contains(logName)){
     logs = globalMap(logName).logs
-    loggedWindows = globalMap(logName).loggedWindows
-    loggedTimers = globalMap(logName).loggedTimers
+    loggedTimeroutputs = globalMap(logName).loggedTimeroutputs
     loggedStepCursor = globalMap(logName).loggedStepCursor
   }
   globalMap(logName) = this
@@ -35,10 +33,8 @@ class MemoryStorage(logName: String) extends AbstractLogStorage(logName)  {
         loggedStepCursor = idx
       case AbstractLogStorage.UpdateStepCursor(step) =>
         loggedStepCursor = step
-      case AbstractLogStorage.TimerStart(startTime, startCursor) =>
-        loggedTimers.append(new Tuple2(startTime, startCursor))
-      case AbstractLogStorage.WindowStart(startTime, startCursor) =>
-        loggedWindows.append(new Tuple2(startTime, startCursor))
+      case AbstractLogStorage.TimerOutput(out) =>
+        loggedTimeroutputs.append(out)
       case AbstractLogStorage.ControlRecord(controlName, controlArgs) =>
         logs.append(record)
       case AbstractLogStorage.ChannelOrder(inputNum, newChannelID, lastChannelRecordCount) =>
@@ -54,14 +50,12 @@ class MemoryStorage(logName: String) extends AbstractLogStorage(logName)  {
 
   override def clear(): Unit = {
     logs = new ArrayBuffer[LogRecord]()
-    loggedWindows = new ArrayBuffer[tuple.Tuple2[java.lang.Long, java.lang.Long]]()
-    loggedTimers = new ArrayBuffer[tuple.Tuple2[java.lang.Long, java.lang.Long]]()
+    loggedTimeroutputs.clear()
     loggedStepCursor = 0
   }
 
   override def release(): Unit = {}
 
-  override def getLoggedWindows: Array[tuple.Tuple2[java.lang.Long, java.lang.Long]] = loggedWindows.toArray
+  override def getTimerOutputs: Array[Long] = loggedTimeroutputs.toArray
 
-  override def getLoggedTimers: Array[tuple.Tuple2[java.lang.Long, java.lang.Long]] = loggedTimers.toArray
 }
