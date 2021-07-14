@@ -58,4 +58,7 @@ class MemoryStorage(logName: String) extends AbstractLogStorage(logName)  {
 
   override def getTimerOutputs: Array[Long] = loggedTimeroutputs.toArray
 
+  override def truncateLog(): Unit = {
+    clear()
+  }
 }
