@@ -8,7 +8,7 @@ import org.apache.flink.runtime.event.AbstractEvent
 import org.apache.flink.runtime.io.network.buffer.BufferConsumer
 import org.apache.flink.shaded.guava18.com.google.common.collect.Queues
 import org.apache.flink.runtime.recovery.AbstractLogStorage._
-import org.apache.flink.runtime.recovery.AsyncLogWriter.{CursorUpdate, NetworkOutputElem, OutputElem, ShutdownOutput}
+import org.apache.flink.runtime.recovery.AsyncLogWriter._
 import org.apache.flink.util.function.TriConsumer
 
 import scala.collection.mutable
@@ -31,6 +31,8 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
   private val shutdownFuture = new CompletableFuture[Void]()
   private val outputCallbackMap = new mutable.ArrayBuffer[TriConsumer[BufferConsumer, Integer, java.lang.Boolean]]()
   private val outputMailbox:LinkedBlockingQueue[NetworkOutputElem] = Queues.newLinkedBlockingQueue()
+  var currentOutputCache = new mutable.Queue[OutputElem]()
+  var prevOutputCache:mutable.Queue[OutputElem] = null
 
   def addLogRecord(logRecord: LogRecord): Unit = {
     logRecordQueue.put(logRecord)
@@ -38,12 +40,22 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
 
   def addOutput(elem:NetworkOutputElem): Unit ={
     //System.out.println(storage.name+" pushed "+elem)
+    elem match {
+      case elem: OutputElem =>
+        currentOutputCache.enqueue(elem)
+      case _ =>
+    }
     outputMailbox.put(elem)
   }
 
+  def clearCachedOutput():Unit ={
+    prevOutputCache = null
+  }
 
   def takeCheckpoint():Unit = {
     logRecordQueue.put(TruncateLog)
+    prevOutputCache = currentOutputCache
+    currentOutputCache = new mutable.Queue[OutputElem]()
   }
 
   def shutdown(): CompletableFuture[Void] ={
@@ -66,9 +78,9 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
       try{
         while(!isEnded){
           outputMailbox.take() match {
-            case AsyncLogWriter.ShutdownOutput =>
+            case ShutdownOutput =>
               isEnded = true
-            case AsyncLogWriter.CursorUpdate(cursor) =>
+            case CursorUpdate(cursor) =>
               myCursor = cursor
               while(myStash.nonEmpty && myCursor >= myStash.head.cursor){
                 myStash.dequeue() match {
@@ -77,7 +89,7 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
                 }
               }
               //System.out.println(storage.name+": queue size after updating cursor to ="+myCursor+" is "+myStash.size)
-            case elem @ AsyncLogWriter.OutputBuffer(cursor, idx, payload, length, finish) =>
+            case elem @ OutputBuffer(cursor, idx, payload, length, finish) =>
               if(myCursor >= cursor){
                 outputCallbackMap(idx).accept(payload, length, finish)
                 //System.out.println(storage.name+" directly process since "+myCursor+" >= "+cursor)
