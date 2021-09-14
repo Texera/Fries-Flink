@@ -56,7 +56,10 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
   }
 
   def clearCachedOutput():Unit ={
-    prevOutputCache = null
+    if(prevOutputCache != null){
+      println(s"cleared output cache length = ${prevOutputCache.length} for ${storage.name}")
+      prevOutputCache = null
+    }
   }
 
   def takeCheckpoint():Unit = {
