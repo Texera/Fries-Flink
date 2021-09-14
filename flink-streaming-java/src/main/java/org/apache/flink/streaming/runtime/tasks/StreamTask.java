@@ -414,6 +414,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             System.out.println("print-level = "+globalArgs.get("print-level"));
         }
         writer = new AsyncLogWriter(storage);
+        System.out.println(System.getProperty("enableOutputCache")==null?"enableOutputCache = null":("enableOutputCache = "+System.getProperty("enableOutputCache")));
         if(System.getProperty("enableOutputCache")!=null && System.getProperty("enableOutputCache").equals("true")) {
             System.out.println("enabled output cache for "+logName);
             writer.enableOutputCache();
