@@ -408,7 +408,7 @@ public class StreamSourceContexts {
             if(dpLogManager!=null) {
                 this.dpLogManager = dpLogManager;
             }else{
-                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L, null));
+                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L));
             }
             this.isPausedFuture = isPausedFuture;
             scheduleNextIdleDetectionTask();

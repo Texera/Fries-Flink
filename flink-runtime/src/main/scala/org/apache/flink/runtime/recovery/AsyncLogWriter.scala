@@ -33,6 +33,11 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
   private val outputMailbox:LinkedBlockingQueue[NetworkOutputElem] = Queues.newLinkedBlockingQueue()
   var currentOutputCache = new mutable.Queue[OutputElem]()
   var prevOutputCache:mutable.Queue[OutputElem] = null
+  var outputCacheEnabled = false
+
+  def enableOutputCache(): Unit ={
+    outputCacheEnabled = true
+  }
 
   def addLogRecord(logRecord: LogRecord): Unit = {
     logRecordQueue.put(logRecord)
@@ -40,10 +45,12 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
 
   def addOutput(elem:NetworkOutputElem): Unit ={
     //System.out.println(storage.name+" pushed "+elem)
-    elem match {
-      case elem: OutputElem =>
-        currentOutputCache.enqueue(elem)
-      case _ =>
+    if(outputCacheEnabled){
+      elem match {
+        case elem: OutputElem =>
+          currentOutputCache.enqueue(elem)
+        case _ =>
+      }
     }
     outputMailbox.put(elem)
   }
@@ -54,8 +61,10 @@ class AsyncLogWriter(val storage:AbstractLogStorage) {
 
   def takeCheckpoint():Unit = {
     logRecordQueue.put(TruncateLog)
-    prevOutputCache = currentOutputCache
-    currentOutputCache = new mutable.Queue[OutputElem]()
+    if(outputCacheEnabled){
+      prevOutputCache = currentOutputCache
+      currentOutputCache = new mutable.Queue[OutputElem]()
+    }
   }
 
   def shutdown(): CompletableFuture[Void] ={

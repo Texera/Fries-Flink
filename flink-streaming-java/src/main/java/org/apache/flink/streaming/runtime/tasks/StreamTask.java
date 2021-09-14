@@ -414,6 +414,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             System.out.println("print-level = "+globalArgs.get("print-level"));
         }
         writer = new AsyncLogWriter(storage);
+        if(System.getProperty("enableOutputCache")!=null && System.getProperty("enableOutputCache").equals("true")) {
+            writer.enableOutputCache();
+        }
         StepCursor stepCursor = new StepCursor(storage.getStepCursor());
         for(ResultPartitionWriter rpWriter: environment.getAllWriters()){
             for(ResultSubpartition sub: ((BufferWritingResultPartition)rpWriter).subpartitions){
