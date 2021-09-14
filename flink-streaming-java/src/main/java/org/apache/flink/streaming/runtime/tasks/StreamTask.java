@@ -415,6 +415,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         }
         writer = new AsyncLogWriter(storage);
         if(System.getProperty("enableOutputCache")!=null && System.getProperty("enableOutputCache").equals("true")) {
+            System.out.println("enabled output cache for "+logName);
             writer.enableOutputCache();
         }
         StepCursor stepCursor = new StepCursor(storage.getStepCursor());
@@ -1322,6 +1323,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     @Override
     public Future<Void> notifyCheckpointCompleteAsync(long checkpointId) {
+        System.out.println("notify chkpt completed received!");
         return notifyCheckpointOperation(
                 () -> notifyCheckpointComplete(checkpointId),
                 "checkpoint complete", checkpointId);
@@ -1358,6 +1360,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     private void notifyCheckpointComplete(long checkpointId) throws Exception {
+        System.out.println("executing chkpt complete!");
         writer.clearCachedOutput();
         subtaskCheckpointCoordinator.notifyCheckpointComplete(
                 checkpointId, operatorChain, this::isRunning);
