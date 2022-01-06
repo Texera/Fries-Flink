@@ -18,6 +18,10 @@
 
 package org.apache.flink.runtime.io.network.api.serialization;
 
+import controller.ControlMessage;
+
+import controller.ControlMessage$;
+
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.core.memory.MemorySegment;
@@ -206,8 +210,12 @@ public class EventSerializer {
                         ? null
                         : checkpointOptions.getTargetLocation().getReferenceBytes();
 
+        byte[] messageBuf = null;
+        if(barrier.message != null){
+            messageBuf = ControlMessage.serialize(barrier.message);
+        }
         final ByteBuffer buf =
-                ByteBuffer.allocate(38 + (locationBytes == null ? 0 : locationBytes.length));
+                ByteBuffer.allocate(38 + (locationBytes == null ? 0 : locationBytes.length)+(messageBuf != null ?messageBuf.length:0));
 
         // we do not use checkpointType.ordinal() here to make the serialization robust
         // against changes in the enum (such as changes in the order of the values)
@@ -237,7 +245,9 @@ public class EventSerializer {
         }
         buf.put((byte) checkpointOptions.getAlignment().ordinal());
         buf.putLong(checkpointOptions.getAlignmentTimeout());
-
+        if(messageBuf != null){
+            buf.put(messageBuf);
+        }
         buf.flip();
         return buf;
     }
@@ -274,12 +284,19 @@ public class EventSerializer {
         final CheckpointOptions.AlignmentType alignmentType =
                 CheckpointOptions.AlignmentType.values()[buffer.get()];
         final long alignmentTimeout = buffer.getLong();
-
-        return new CheckpointBarrier(
+        int len = buffer.capacity()-buffer.position();
+        CheckpointBarrier barrier = new CheckpointBarrier(
                 id,
                 timestamp,
                 new CheckpointOptions(
                         checkpointType, locationRef, alignmentType, alignmentTimeout));
+        if(len > 0){
+            byte[] bytes = new byte[len];
+            buffer.get(bytes);
+            ControlMessage message = ControlMessage.deserialize(bytes);
+            barrier.setMessage(message);
+        }
+        return barrier;
     }
 
     // ------------------------------------------------------------------------

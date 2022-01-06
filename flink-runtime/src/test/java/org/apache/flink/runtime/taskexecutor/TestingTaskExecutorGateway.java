@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.api.java.tuple.Tuple6;
@@ -229,6 +231,14 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     public CompletableFuture<Acknowledge> abortCheckpoint(
             ExecutionAttemptID executionAttemptID, long checkpointId, long checkpointTimestamp) {
         return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> sendControlToTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout,
+            ControlMessage controlMessage) {
+        return null;
     }
 
     @Override

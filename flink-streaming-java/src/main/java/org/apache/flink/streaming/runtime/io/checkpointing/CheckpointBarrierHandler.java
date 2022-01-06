@@ -107,6 +107,12 @@ public abstract class CheckpointBarrierHandler implements Closeable {
     }
 
     protected void notifyCheckpoint(CheckpointBarrier checkpointBarrier) throws IOException {
+
+        if(checkpointBarrier.getId() == -1){
+            toNotifyOnCheckpoint.sendControl(checkpointBarrier.message);
+            return;
+        }
+
         CheckpointMetaData checkpointMetaData =
                 new CheckpointMetaData(
                         checkpointBarrier.getId(),

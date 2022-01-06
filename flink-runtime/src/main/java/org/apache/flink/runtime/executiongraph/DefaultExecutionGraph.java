@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import controller.Controller;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ArchivedExecutionConfig;
 import org.apache.flink.api.common.ExecutionConfig;
@@ -346,6 +348,7 @@ public class DefaultExecutionGraph implements ExecutionGraph, InternalExecutionG
         this.edgeManager = new EdgeManager();
         this.executionVerticesById = new HashMap<>();
         this.resultPartitionsById = new HashMap<>();
+        Controller.registerJobToSendControl(this);
     }
 
     @Override

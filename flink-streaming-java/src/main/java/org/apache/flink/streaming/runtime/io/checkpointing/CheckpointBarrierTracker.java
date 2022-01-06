@@ -83,6 +83,12 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
             throws IOException {
         final long barrierId = receivedBarrier.getId();
 
+        // epoch control message
+        if(barrierId == -1){
+            notifyCheckpoint(receivedBarrier);
+            return;
+        }
+
         // fast path for single channel trackers
         if (totalNumberOfInputChannels == 1) {
             markAlignmentStartAndEnd(receivedBarrier.getTimestamp());

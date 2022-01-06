@@ -358,6 +358,8 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         this.configuration = new StreamConfig(getTaskConfiguration());
         String id = getEnvironment().getJobVertexId().toString();
         TaskInfo info = getEnvironment().getTaskInfo();
+        JobVertexID jobVId = getEnvironment().getJobVertexId();
+        int subtaskIdx = info.getIndexOfThisSubtask();
         logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         Map<String, String> globalArgs = environment.getExecutionConfig().getGlobalJobParameters().toMap();
         AbstractLogStorage storage = new EmptyLogStorage(logName);
@@ -510,10 +512,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             isPausedFuture.set();
         });
         mailResolver.bind("exp", () ->{});
-        JobVertexID jobVId = getEnvironment().getJobVertexId();
-        int subtaskIdx = info.getIndexOfThisSubtask();
         mailResolver.bind("control", x ->{
-            ((ControlMessage)x[0]).callback().accept(new Object[]{jobVId, subtaskIdx});
+            ControlMessage controlMessage = (ControlMessage)x[0];
+            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
+            if(controlMessage.EpochMode()){
+                CheckpointBarrier barrier = new CheckpointBarrier(-1, -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                barrier.setMessage(controlMessage);
+                operatorChain.broadcastEvent(barrier, false);
+            }
         });
 
 //        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
@@ -543,9 +549,17 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     @Override
     public void sendControl(ControlMessage controlMessage) {
+        TaskInfo info = getEnvironment().getTaskInfo();
+        JobVertexID jobVId = getEnvironment().getJobVertexId();
+        int subtaskIdx = info.getIndexOfThisSubtask();
         mainMailboxExecutor.execute(() -> {
-
-        },"control");
+            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
+            if(controlMessage.EpochMode()){
+                CheckpointBarrier barrier = new CheckpointBarrier(-1, -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                barrier.setMessage(controlMessage);
+                operatorChain.broadcastEvent(barrier, false);
+            }
+        },"control",controlMessage);
     }
 
 
@@ -1280,54 +1294,49 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 checkpointOptions.getCheckpointType(),
                 getName()));
 
-        operatorChain.broadcastEvent(
-                new CheckpointBarrier(checkpointMetaData.getCheckpointId(), checkpointMetaData.getTimestamp(), checkpointOptions),
-                checkpointOptions.isUnalignedCheckpoint());
-        return true;
+        if (isRunning) {
+            actionExecutor.runThrowing(
+                    () -> {
+                        if (checkpointOptions.getCheckpointType().isSynchronous()) {
+                            setSynchronousSavepointId(
+                                    checkpointMetaData.getCheckpointId(),
+                                    checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
 
-//        if (isRunning) {
-//            actionExecutor.runThrowing(
-//                    () -> {
-//                        if (checkpointOptions.getCheckpointType().isSynchronous()) {
-//                            setSynchronousSavepointId(
-//                                    checkpointMetaData.getCheckpointId(),
-//                                    checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
-//
-//                            if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
-//                                advanceToEndOfEventTime();
-//                            }
-//                        } else if (activeSyncSavepointId != null
-//                                && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
-//                            activeSyncSavepointId = null;
-//                            operatorChain.setIgnoreEndOfInput(false);
-//                        }
-//
-//                        subtaskCheckpointCoordinator.checkpointState(
-//                                checkpointMetaData,
-//                                checkpointOptions,
-//                                checkpointMetrics,
-//                                operatorChain,
-//                                this::isRunning);
-//                    });
-//
-//            return true;
-//        } else {
-//            actionExecutor.runThrowing(
-//                    () -> {
-//                        // we cannot perform our checkpoint - let the downstream operators know that
-//                        // they
-//                        // should not wait for any input from this operator
-//
-//                        // we cannot broadcast the cancellation markers on the 'operator chain',
-//                        // because it may not
-//                        // yet be created
-//                        final CancelCheckpointMarker message =
-//                                new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
-//                        recordWriter.broadcastEvent(message);
-//                    });
-//
-//            return false;
-//        }
+                            if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
+                                advanceToEndOfEventTime();
+                            }
+                        } else if (activeSyncSavepointId != null
+                                && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
+                            activeSyncSavepointId = null;
+                            operatorChain.setIgnoreEndOfInput(false);
+                        }
+
+                        subtaskCheckpointCoordinator.checkpointState(
+                                checkpointMetaData,
+                                checkpointOptions,
+                                checkpointMetrics,
+                                operatorChain,
+                                this::isRunning);
+                    });
+
+            return true;
+        } else {
+            actionExecutor.runThrowing(
+                    () -> {
+                        // we cannot perform our checkpoint - let the downstream operators know that
+                        // they
+                        // should not wait for any input from this operator
+
+                        // we cannot broadcast the cancellation markers on the 'operator chain',
+                        // because it may not
+                        // yet be created
+                        final CancelCheckpointMarker message =
+                                new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
+                        recordWriter.broadcastEvent(message);
+                    });
+
+            return false;
+        }
     }
 
     protected void declineCheckpoint(long checkpointId) {

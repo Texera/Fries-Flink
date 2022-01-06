@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.executiongraph.utils;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -102,6 +104,14 @@ public class SimpleAckingTaskManagerGateway implements TaskManagerGateway {
     public CompletableFuture<Acknowledge> submitTask(TaskDeploymentDescriptor tdd, Time timeout) {
         submitConsumer.accept(tdd);
         return CompletableFuture.completedFuture(Acknowledge.get());
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> sendControlToTask(
+            ExecutionAttemptID executionAttemptID,
+            Time timeout,
+            ControlMessage controlMessage) {
+        return null;
     }
 
     @Override

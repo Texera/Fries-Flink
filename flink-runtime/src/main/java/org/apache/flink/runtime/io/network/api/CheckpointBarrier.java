@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.api;
 
+import controller.ControlMessage;
+
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -47,11 +49,16 @@ public class CheckpointBarrier extends RuntimeEvent {
     private final long id;
     private final long timestamp;
     private final CheckpointOptions checkpointOptions;
+    public ControlMessage message;
 
     public CheckpointBarrier(long id, long timestamp, CheckpointOptions checkpointOptions) {
         this.id = id;
         this.timestamp = timestamp;
         this.checkpointOptions = checkNotNull(checkpointOptions);
+    }
+
+    public void setMessage(ControlMessage message) {
+        this.message = message;
     }
 
     public long getId() {

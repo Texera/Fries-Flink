@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
@@ -834,10 +836,10 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     @Override
     public CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID,
-            Time timeout) {
+            Time timeout, ControlMessage controlMessage) {
         final Task task = taskSlotTable.getTask(executionAttemptID);
         if(task != null){
-            task.pause();
+            task.sendControl(controlMessage);
         }
         return CompletableFuture.completedFuture(Acknowledge.get());
     }
@@ -1041,6 +1043,7 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
                             CheckpointFailureReason.UNKNOWN_TASK_CHECKPOINT_NOTIFICATION_FAILURE));
         }
     }
+    
 
     // ----------------------------------------------------------------------
     // Slot allocation RPCs
