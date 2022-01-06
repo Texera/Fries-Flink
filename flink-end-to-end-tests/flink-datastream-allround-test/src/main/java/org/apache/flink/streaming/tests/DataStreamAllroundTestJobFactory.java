@@ -243,7 +243,7 @@ public class DataStreamAllroundTestJobFactory {
 
     public static void setupEnvironment(StreamExecutionEnvironment env, ParameterTool pt)
             throws Exception {
-        //setupCheckpointing(env, pt);
+        setupCheckpointing(env, pt);
         setupParallelism(env, pt);
         setupRestartStrategy(env, pt);
         setupStateBackend(env, pt);

@@ -39,6 +39,7 @@ import org.apache.flink.runtime.concurrent.FutureUtils;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.api.CancelCheckpointMarker;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.writer.MultipleRecordWriters;
 import org.apache.flink.runtime.io.network.api.writer.NonRecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
@@ -1258,55 +1259,60 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             CheckpointMetricsBuilder checkpointMetrics)
             throws Exception {
 
-        LOG.debug(
-                "Starting checkpoint ({}) {} on task {}",
+        System.out.println(
+                String.format("Starting checkpoint (%d) %s on task %s",
                 checkpointMetaData.getCheckpointId(),
                 checkpointOptions.getCheckpointType(),
-                getName());
+                getName()));
 
-        if (isRunning) {
-            actionExecutor.runThrowing(
-                    () -> {
-                        if (checkpointOptions.getCheckpointType().isSynchronous()) {
-                            setSynchronousSavepointId(
-                                    checkpointMetaData.getCheckpointId(),
-                                    checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
+        operatorChain.broadcastEvent(
+                new CheckpointBarrier(checkpointMetaData.getCheckpointId(), checkpointMetaData.getTimestamp(), checkpointOptions),
+                checkpointOptions.isUnalignedCheckpoint());
+        return true;
 
-                            if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
-                                advanceToEndOfEventTime();
-                            }
-                        } else if (activeSyncSavepointId != null
-                                && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
-                            activeSyncSavepointId = null;
-                            operatorChain.setIgnoreEndOfInput(false);
-                        }
-
-                        subtaskCheckpointCoordinator.checkpointState(
-                                checkpointMetaData,
-                                checkpointOptions,
-                                checkpointMetrics,
-                                operatorChain,
-                                this::isRunning);
-                    });
-
-            return true;
-        } else {
-            actionExecutor.runThrowing(
-                    () -> {
-                        // we cannot perform our checkpoint - let the downstream operators know that
-                        // they
-                        // should not wait for any input from this operator
-
-                        // we cannot broadcast the cancellation markers on the 'operator chain',
-                        // because it may not
-                        // yet be created
-                        final CancelCheckpointMarker message =
-                                new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
-                        recordWriter.broadcastEvent(message);
-                    });
-
-            return false;
-        }
+//        if (isRunning) {
+//            actionExecutor.runThrowing(
+//                    () -> {
+//                        if (checkpointOptions.getCheckpointType().isSynchronous()) {
+//                            setSynchronousSavepointId(
+//                                    checkpointMetaData.getCheckpointId(),
+//                                    checkpointOptions.getCheckpointType().shouldIgnoreEndOfInput());
+//
+//                            if (checkpointOptions.getCheckpointType().shouldAdvanceToEndOfTime()) {
+//                                advanceToEndOfEventTime();
+//                            }
+//                        } else if (activeSyncSavepointId != null
+//                                && activeSyncSavepointId < checkpointMetaData.getCheckpointId()) {
+//                            activeSyncSavepointId = null;
+//                            operatorChain.setIgnoreEndOfInput(false);
+//                        }
+//
+//                        subtaskCheckpointCoordinator.checkpointState(
+//                                checkpointMetaData,
+//                                checkpointOptions,
+//                                checkpointMetrics,
+//                                operatorChain,
+//                                this::isRunning);
+//                    });
+//
+//            return true;
+//        } else {
+//            actionExecutor.runThrowing(
+//                    () -> {
+//                        // we cannot perform our checkpoint - let the downstream operators know that
+//                        // they
+//                        // should not wait for any input from this operator
+//
+//                        // we cannot broadcast the cancellation markers on the 'operator chain',
+//                        // because it may not
+//                        // yet be created
+//                        final CancelCheckpointMarker message =
+//                                new CancelCheckpointMarker(checkpointMetaData.getCheckpointId());
+//                        recordWriter.broadcastEvent(message);
+//                    });
+//
+//            return false;
+//        }
     }
 
     protected void declineCheckpoint(long checkpointId) {
