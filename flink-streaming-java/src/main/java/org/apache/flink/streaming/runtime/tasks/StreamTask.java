@@ -19,6 +19,8 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import com.google.common.collect.HashBiMap;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.TaskInfo;
@@ -53,6 +55,7 @@ import org.apache.flink.runtime.io.network.partition.PipelinedSubpartition;
 import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.metrics.TimerGauge;
@@ -507,6 +510,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             isPausedFuture.set();
         });
         mailResolver.bind("exp", () ->{});
+        JobVertexID jobVId = getEnvironment().getJobVertexId();
+        int subtaskIdx = info.getIndexOfThisSubtask();
+        mailResolver.bind("control", x ->{
+            ((ControlMessage)x[0]).callback().accept(new Object[]{jobVId, subtaskIdx});
+        });
 
 //        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
 //
@@ -531,6 +539,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         }
         System.out.println("started "+logName+" at "+System.currentTimeMillis()+"recovery mode = "+!stepCursor.isRecoveryCompleted());
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
+    }
+
+    @Override
+    public void sendControl(ControlMessage controlMessage) {
+        mainMailboxExecutor.execute(() -> {
+
+        },"control");
     }
 
 

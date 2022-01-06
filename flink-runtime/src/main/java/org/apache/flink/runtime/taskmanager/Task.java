@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.taskmanager;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
@@ -943,6 +945,12 @@ public class Task
                         executionId,
                         t);
             }
+        }
+    }
+
+    public void sendControl(ControlMessage controlMessage){
+       if(invokable != null) {
+            invokable.sendControl(controlMessage);
         }
     }
 

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blob.BlobServer;
@@ -171,6 +173,10 @@ public interface TaskExecutorGateway
      * @param timeout for the cancel operation
      * @return Future acknowledge if the task is successfully canceled
      */
+    CompletableFuture<Acknowledge> sendControlToTask(
+            ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout, ControlMessage controlMessage);
+
+
     CompletableFuture<Acknowledge> cancelTask(
             ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout);
 

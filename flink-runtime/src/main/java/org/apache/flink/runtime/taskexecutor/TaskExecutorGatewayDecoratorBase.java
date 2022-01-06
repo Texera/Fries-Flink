@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.blob.TransientBlobKey;
@@ -141,6 +143,12 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
             ExecutionAttemptID executionAttemptID, long checkpointId, long checkpointTimestamp) {
         return originalGateway.abortCheckpoint(
                 executionAttemptID, checkpointId, checkpointTimestamp);
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> sendControlToTask(
+            ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage) {
+        return originalGateway.sendControlToTask(executionAttemptID, timeout, controlMessage);
     }
 
     @Override

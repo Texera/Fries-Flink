@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
 import org.apache.flink.api.common.JobID;
@@ -452,6 +454,11 @@ public class ExecutionVertex
         final Execution exec = currentExecution;
         exec.cancel();
         return exec.getReleaseFuture();
+    }
+
+    public CompletableFuture<?> sendControlMessage(ControlMessage message){
+        final Execution exec = currentExecution;
+        return exec.sendControlRPCCall(message);
     }
 
     public CompletableFuture<?> pause(){

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.executiongraph;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.Archiveable;
 import org.apache.flink.api.common.accumulators.Accumulator;
@@ -1002,6 +1004,16 @@ public class Execution
         } else {
             return false;
         }
+    }
+
+    public CompletableFuture<?> sendControlRPCCall(ControlMessage controlMessage){
+        final LogicalSlot slot = assignedResource;
+
+        if (slot != null) {
+            final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
+            return taskManagerGateway.sendControlToTask(attemptId, rpcTimeout, controlMessage);
+        }
+        return FutureUtils.completedVoidFuture();
     }
 
     public CompletableFuture<?> sendPauseRPCCall(){

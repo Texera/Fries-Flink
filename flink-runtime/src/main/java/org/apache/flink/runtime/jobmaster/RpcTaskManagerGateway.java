@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.jobmaster;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -58,6 +60,12 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
     @Override
     public CompletableFuture<Acknowledge> submitTask(TaskDeploymentDescriptor tdd, Time timeout) {
         return taskExecutorGateway.submitTask(tdd, jobMasterId, timeout);
+    }
+
+    @Override
+    public CompletableFuture<Acknowledge> sendControlToTask(
+            ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage) {
+        return taskExecutorGateway.sendControlToTask(executionAttemptID, timeout, controlMessage);
     }
 
     @Override

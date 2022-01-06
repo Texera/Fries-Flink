@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.jobgraph.tasks;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
@@ -111,6 +113,10 @@ public abstract class AbstractInvokable {
     public Future<Void> cancel() throws Exception {
         // The default implementation does nothing.
         return CompletableFuture.completedFuture(null);
+    }
+
+    public void sendControl(ControlMessage controlMessage) {
+        //do nothing
     }
 
     public void pause() {

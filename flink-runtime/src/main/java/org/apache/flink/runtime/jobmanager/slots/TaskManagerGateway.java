@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.jobmanager.slots;
 
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.checkpoint.CheckpointOptions;
@@ -62,6 +64,8 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
      * @param timeout of the submit operation
      * @return Future acknowledge if the task is successfully canceled
      */
+    CompletableFuture<Acknowledge> sendControlToTask(ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage);
+
     CompletableFuture<Acknowledge> cancelTask(ExecutionAttemptID executionAttemptID, Time timeout);
 
     CompletableFuture<Acknowledge> pauseTask(ExecutionAttemptID executionAttemptID, Time timeout);
