@@ -290,7 +290,7 @@ public class EventSerializer {
                 timestamp,
                 new CheckpointOptions(
                         checkpointType, locationRef, alignmentType, alignmentTimeout));
-        if(len > 0){
+        if(len > 1){
             byte[] bytes = new byte[len];
             buffer.get(bytes);
             ControlMessage message = ControlMessage.deserialize(bytes);

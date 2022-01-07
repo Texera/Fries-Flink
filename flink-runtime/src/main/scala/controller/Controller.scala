@@ -12,12 +12,13 @@ import java.util.function.Consumer
 object Controller {
 
   val controlInterval = 10000
-  val controlMode = "epoch"
+  val controlMode = "dcm"
   val controlDest:String = "final"
 
   def registerJobToSendControl(graph:ExecutionGraph): Unit ={
     val t = new java.util.Timer()
     val task: TimerTask = new java.util.TimerTask {
+      var iteration = 0;
       override def run(): Unit = {
         val targetVertex = controlDest match{
           case "final" =>
@@ -31,22 +32,29 @@ object Controller {
         val targetExecVertex = targetVertex.getTaskVertices.head
         val vertexId = targetExecVertex.getJobvertexId
         val idx = targetExecVertex.getID.getSubtaskIndex
+        val currentIteration = iteration
+        iteration +=1
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           override def accept(t: Array[Object]): Unit = {
-            println(t(0).asInstanceOf[JobVertexID] == vertexId)
-            println(t(1).asInstanceOf[Int] == idx)
             if (t(0).asInstanceOf[JobVertexID] == vertexId && t(1).asInstanceOf[Int] == idx) {
-              println(System.currentTimeMillis())
+              println(s"received iteration $currentIteration time=${ System.currentTimeMillis()}")
             }
           }
         }, controlMode == "epoch")
         controlMode match{
           case "epoch" =>
-            graph.getAllExecutionVertices.iterator().next().sendControlMessage(message)
+            val iter = graph.getVerticesTopologically.iterator()
+            while(iter.hasNext){
+              val v = iter.next()
+              if(v.getInputs.isEmpty){
+                v.getTaskVertices.foreach(e => e.sendControlMessage(message))
+              }
+            }
           case "dcm" =>
             targetVertex.getTaskVertices.head.sendControlMessage(message)
           case other =>
         }
+        println(s"sent iteration $currentIteration time=${System.currentTimeMillis()}")
       }
     }
     t.schedule(task, 10000, controlInterval)

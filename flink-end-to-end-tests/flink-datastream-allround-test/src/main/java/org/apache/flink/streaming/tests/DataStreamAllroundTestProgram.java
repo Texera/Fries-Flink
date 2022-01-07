@@ -81,7 +81,7 @@ public class DataStreamAllroundTestProgram {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[]{
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
-                "--environment.checkpoint_interval","100"
+                "--environment.checkpoint_interval","100",
         });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -92,7 +92,7 @@ public class DataStreamAllroundTestProgram {
         DataStream<Event> eventStream =
                 env.addSource(createEventSource(pt))
                         .name(EVENT_SOURCE.getName())
-                        .uid(EVENT_SOURCE.getUid());
+                        .uid(EVENT_SOURCE.getUid()).setParallelism(4);
 
         eventStream.shuffle().print();
 

@@ -516,8 +516,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             ControlMessage controlMessage = (ControlMessage)x[0];
             controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
             if(controlMessage.EpochMode()){
-                CheckpointBarrier barrier = new CheckpointBarrier(-1, -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                barrier.setMessage(controlMessage);
+                CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                if(subtaskIdx == 0){
+                    barrier.setMessage(controlMessage);
+                }
                 operatorChain.broadcastEvent(barrier, false);
             }
         });
@@ -552,11 +554,14 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         TaskInfo info = getEnvironment().getTaskInfo();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
+
         mainMailboxExecutor.execute(() -> {
             controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
             if(controlMessage.EpochMode()){
-                CheckpointBarrier barrier = new CheckpointBarrier(-1, -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                barrier.setMessage(controlMessage);
+                CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                if(subtaskIdx == 0) {
+                    barrier.setMessage(controlMessage);
+                }
                 operatorChain.broadcastEvent(barrier, false);
             }
         },"control",controlMessage);

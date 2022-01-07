@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.runtime.io.checkpointing;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
@@ -72,6 +74,8 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
     /** The highest checkpoint ID encountered so far. */
     private long latestPendingCheckpointID = -1;
 
+    ControlMessage controlMessage = null;
+
     public CheckpointBarrierTracker(
             int totalNumberOfInputChannels, AbstractInvokable toNotifyOnCheckpoint, Clock clock) {
         super(toNotifyOnCheckpoint, clock);
@@ -82,12 +86,6 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
     public void processBarrier(CheckpointBarrier receivedBarrier, InputChannelInfo channelInfo)
             throws IOException {
         final long barrierId = receivedBarrier.getId();
-
-        // epoch control message
-        if(barrierId == -1){
-            notifyCheckpoint(receivedBarrier);
-            return;
-        }
 
         // fast path for single channel trackers
         if (totalNumberOfInputChannels == 1) {
@@ -113,6 +111,9 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
             pos++;
         }
 
+        if(receivedBarrier.message != null){
+            controlMessage = receivedBarrier.message;
+        }
         if (barrierCount != null) {
             // add one to the count to that barrier and check for completion
             int numBarriersNew = barrierCount.incrementBarrierCount();
@@ -130,6 +131,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
                         LOG.debug("Received all barriers for checkpoint {}", barrierId);
                     }
                     markAlignmentEnd();
+                    receivedBarrier.message = controlMessage;
                     notifyCheckpoint(receivedBarrier);
                 }
             }
@@ -140,7 +142,9 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
             // successful checkpoint for that ID anyways
             if (barrierId > latestPendingCheckpointID) {
                 markAlignmentStart(receivedBarrier.getTimestamp());
-                latestPendingCheckpointID = barrierId;
+                if(barrierId != ControlMessage.FixedEpochNumber()){
+                    latestPendingCheckpointID = barrierId;
+                }
                 pendingCheckpoints.addLast(new CheckpointBarrierCount(barrierId));
 
                 // make sure we do not track too many checkpoints

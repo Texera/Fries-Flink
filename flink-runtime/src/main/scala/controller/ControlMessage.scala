@@ -3,6 +3,9 @@ package controller
 import java.util.function.Consumer
 
 object ControlMessage{
+
+  val FixedEpochNumber = 999999
+
   import java.io._
 
     def serialize(obj: ControlMessage): Array[Byte] = {

@@ -18,6 +18,8 @@
 
 package org.apache.flink.runtime.io.network.buffer;
 
+import controller.ControlMessage;
+
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
@@ -343,6 +345,9 @@ public interface Buffer {
                 return EVENT_BUFFER;
             }
             CheckpointBarrier barrier = (CheckpointBarrier) event;
+            if(barrier.getId() == ControlMessage.FixedEpochNumber()){
+                return EVENT_BUFFER;
+            }
             if (barrier.getCheckpointOptions().needsAlignment()) {
                 if (barrier.getCheckpointOptions().isTimeoutable()) {
                     return TIMEOUTABLE_ALIGNED_CHECKPOINT_BARRIER;
