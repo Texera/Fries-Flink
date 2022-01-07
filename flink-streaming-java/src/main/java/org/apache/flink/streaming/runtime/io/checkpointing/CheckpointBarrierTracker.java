@@ -131,6 +131,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
                         LOG.debug("Received all barriers for checkpoint {}", barrierId);
                     }
                     markAlignmentEnd();
+                    System.out.println("received all barriers = "+totalNumberOfInputChannels);
                     receivedBarrier.message = controlMessage;
                     notifyCheckpoint(receivedBarrier);
                 }

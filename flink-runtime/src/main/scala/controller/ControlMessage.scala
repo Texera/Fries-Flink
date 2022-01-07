@@ -4,7 +4,7 @@ import java.util.function.Consumer
 
 object ControlMessage{
 
-  val FixedEpochNumber = 999999
+  val FixedEpochNumber:Long = 999999999
 
   import java.io._
 

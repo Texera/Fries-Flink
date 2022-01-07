@@ -11,9 +11,21 @@ import java.util.function.Consumer
 
 object Controller {
 
-  val controlInterval = 10000
-  val controlMode = "dcm"
-  val controlDest:String = "final"
+  val controlInterval:Int = if(System.getProperty("controlInterval") == null){
+    10000
+  }else{
+    System.getProperty("controlInterval").toInt
+  }
+  val controlMode = if(System.getProperty("controlMode") == null){
+    "epoch"
+  }else{
+    System.getProperty("controlMode")
+  }
+  val controlDest:String = if(System.getProperty("controlDest") == null){
+    "final"
+  }else{
+    System.getProperty("controlDest")
+  }
 
   def registerJobToSendControl(graph:ExecutionGraph): Unit ={
     val t = new java.util.Timer()

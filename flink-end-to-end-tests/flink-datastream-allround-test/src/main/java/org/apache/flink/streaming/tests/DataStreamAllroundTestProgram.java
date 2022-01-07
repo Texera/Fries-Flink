@@ -18,6 +18,7 @@
 
 package org.apache.flink.streaming.tests;
 
+import org.apache.flink.api.common.functions.JoinFunction;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -28,6 +29,10 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
+import org.apache.flink.streaming.api.windowing.assigners.WindowAssigner;
+import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.tests.avro.ComplexPayloadAvro;
 import org.apache.flink.streaming.tests.avro.InnerPayLoadAvro;
@@ -94,7 +99,17 @@ public class DataStreamAllroundTestProgram {
                         .name(EVENT_SOURCE.getName())
                         .uid(EVENT_SOURCE.getUid()).setParallelism(4);
 
-        eventStream.shuffle().print();
+        DataStream<Event> eventStream2 =
+                env.addSource(createEventSource(pt)).setParallelism(4);
+
+        eventStream.shuffle().join(eventStream2).where(Event::getKey).equalTo(Event::getKey).window(
+                TumblingProcessingTimeWindows.of(Time.seconds(5))).apply(new JoinFunction<Event, Event, Object>() {
+            @Override
+            public Object join(Event first, Event second) throws Exception {
+                System.out.println(first+" "+second);
+                return null;
+            }
+        });
 
         env.execute("General purpose test job");
     }
