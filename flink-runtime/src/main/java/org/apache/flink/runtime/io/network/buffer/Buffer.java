@@ -345,9 +345,9 @@ public interface Buffer {
                 return EVENT_BUFFER;
             }
             CheckpointBarrier barrier = (CheckpointBarrier) event;
-            if(barrier.getId() == ControlMessage.FixedEpochNumber()){
-                return EVENT_BUFFER;
-            }
+//            if(barrier.getId() == ControlMessage.FixedEpochNumber()){
+//                return EVENT_BUFFER;
+//            }
             if (barrier.getCheckpointOptions().needsAlignment()) {
                 if (barrier.getCheckpointOptions().isTimeoutable()) {
                     return TIMEOUTABLE_ALIGNED_CHECKPOINT_BARRIER;
