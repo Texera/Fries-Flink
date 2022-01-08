@@ -551,6 +551,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
     @Override
     public void sendControl(ControlMessage controlMessage) {
+        new Throwable().printStackTrace();
         TaskInfo info = getEnvironment().getTaskInfo();
         String name = info.getTaskNameWithSubtasks();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
