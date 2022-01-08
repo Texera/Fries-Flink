@@ -49,7 +49,7 @@ object Controller {
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           override def accept(t: Array[Object]): Unit = {
             if (t(0).asInstanceOf[JobVertexID] == vertexId && t(1).asInstanceOf[Int] == idx) {
-              println(s"received iteration $currentIteration time=${ System.currentTimeMillis()}")
+              println(s"received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
             }
           }
         }, controlMode == "epoch")

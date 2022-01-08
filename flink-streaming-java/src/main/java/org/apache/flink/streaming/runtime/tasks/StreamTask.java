@@ -552,14 +552,17 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     @Override
     public void sendControl(ControlMessage controlMessage) {
         TaskInfo info = getEnvironment().getTaskInfo();
+        String name = info.getTaskNameWithSubtasks();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
 
         mainMailboxExecutor.execute(() -> {
-            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
+            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
             if(controlMessage.EpochMode()){
                 CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                barrier.setMessage(controlMessage);
+                if(subtaskIdx == 0) {
+                    barrier.setMessage(controlMessage);
+                }
                 operatorChain.broadcastEvent(barrier, false);
             }
         },"control",controlMessage);

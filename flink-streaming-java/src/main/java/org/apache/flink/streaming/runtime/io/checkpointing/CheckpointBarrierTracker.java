@@ -90,6 +90,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
         // fast path for single channel trackers
         if (totalNumberOfInputChannels == 1) {
             markAlignmentStartAndEnd(receivedBarrier.getTimestamp());
+            System.out.println("received all barriers = "+totalNumberOfInputChannels+" current message = "+controlMessage);
             notifyCheckpoint(receivedBarrier);
             return;
         }
@@ -114,6 +115,9 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
         if(receivedBarrier.message != null){
             controlMessage = receivedBarrier.message;
         }
+
+        System.out.println("received barrier = "+barrierCount.barrierCount+" current message = "+controlMessage);
+
         if (barrierCount != null) {
             // add one to the count to that barrier and check for completion
             int numBarriersNew = barrierCount.incrementBarrierCount();
