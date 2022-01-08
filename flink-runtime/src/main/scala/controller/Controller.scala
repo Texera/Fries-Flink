@@ -27,7 +27,10 @@ object Controller {
     System.getProperty("controlDest")
   }
 
+  var jobCount = 0;
   def registerJobToSendControl(graph:ExecutionGraph): Unit ={
+    jobCount+=1
+    val jobID = "job"+jobCount;
     val t = new java.util.Timer()
     val task: TimerTask = new java.util.TimerTask {
       var iteration = 0;
@@ -45,10 +48,11 @@ object Controller {
         val vertexId = targetExecVertex.getJobvertexId
         val idx = targetExecVertex.getID.getSubtaskIndex
         val currentIteration = iteration
+        val innerJobID = jobID
         iteration +=1
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           override def accept(t: Array[Object]): Unit = {
-            println(s"received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
+            println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
           }
         }, controlMode == "epoch")
         controlMode match{
@@ -64,7 +68,7 @@ object Controller {
             targetVertex.getTaskVertices.head.sendControlMessage(message)
           case other =>
         }
-        println(s"sent iteration $currentIteration time=${System.currentTimeMillis()}")
+        println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
       }
     }
     t.schedule(task, 10000, controlInterval)

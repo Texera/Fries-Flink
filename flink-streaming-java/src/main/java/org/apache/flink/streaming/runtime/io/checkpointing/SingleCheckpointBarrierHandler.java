@@ -79,6 +79,8 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
     private long lastCancelledOrCompletedCheckpointId = -1L;
 
+    private long lastTrueCheckpointId = -1L;
+
     private int numOpenChannels;
 
     private CompletableFuture<Void> allBarriersReceivedFuture = new CompletableFuture<>();
@@ -196,6 +198,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     public void processBarrier(CheckpointBarrier barrier, InputChannelInfo channelInfo)
             throws IOException {
         long barrierId = barrier.getId();
+
         LOG.debug("{}: Received barrier from channel {} @ {}.", taskName, channelInfo, barrierId);
 
         if (currentCheckpointId > barrierId
@@ -207,7 +210,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         }
 
         checkNewCheckpoint(barrier);
-        //checkState(currentCheckpointId == barrierId);
+        checkState(currentCheckpointId == barrierId);
 
         if (numBarriersReceived++ == 0) {
             if (getNumOpenChannels() == 1) {
@@ -221,6 +224,10 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         // trigger a checkpoint with unfinished future for alignment duration
         if (numBarriersReceived == numOpenChannels) {
             if (getNumOpenChannels() > 1) {
+                if(currentCheckpointId == ControlMessage.FixedEpochNumber()){
+                    currentCheckpointId = lastTrueCheckpointId;
+                    lastCancelledOrCompletedCheckpointId = lastTrueCheckpointId;
+                }
                 markAlignmentEnd();
             }
         }
@@ -235,11 +242,10 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
         if (numBarriersReceived == numOpenChannels) {
             numBarriersReceived = 0;
-            if(barrierId != ControlMessage.FixedEpochNumber()){
-                lastCancelledOrCompletedCheckpointId = currentCheckpointId;
-                LOG.debug(
-                        "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
-            }
+            lastCancelledOrCompletedCheckpointId = currentCheckpointId;
+            if(currentCheckpointId!= ControlMessage.FixedEpochNumber()) lastTrueCheckpointId = currentCheckpointId;
+            LOG.debug(
+                    "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
             resetAlignmentTimer();
             allBarriersReceivedFuture.complete(null);
         }
@@ -309,9 +315,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
             if (isCheckpointPending()) {
                 cancelSubsumedCheckpoint(barrierId);
             }
-            if(barrier.getId() != ControlMessage.FixedEpochNumber()){
-                currentCheckpointId = barrierId;
-            }
+            currentCheckpointId = barrierId;
             numBarriersReceived = 0;
             allBarriersReceivedFuture = new CompletableFuture<>();
             return true;
