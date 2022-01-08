@@ -560,9 +560,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
             if(controlMessage.EpochMode()){
                 CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                if(subtaskIdx == 0) {
-                    barrier.setMessage(controlMessage);
-                }
+                barrier.setMessage(controlMessage);
                 operatorChain.broadcastEvent(barrier, false);
             }
         },"control",controlMessage);
