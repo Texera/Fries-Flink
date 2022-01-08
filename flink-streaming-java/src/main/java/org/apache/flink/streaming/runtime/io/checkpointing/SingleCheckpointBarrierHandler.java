@@ -18,6 +18,8 @@
 
 package org.apache.flink.streaming.runtime.io.checkpointing;
 
+import controller.ControlMessage;
+
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.runtime.checkpoint.CheckpointException;
@@ -205,7 +207,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         }
 
         checkNewCheckpoint(barrier);
-        checkState(currentCheckpointId == barrierId);
+        //checkState(currentCheckpointId == barrierId);
 
         if (numBarriersReceived++ == 0) {
             if (getNumOpenChannels() == 1) {
@@ -233,9 +235,11 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
         if (numBarriersReceived == numOpenChannels) {
             numBarriersReceived = 0;
-            lastCancelledOrCompletedCheckpointId = currentCheckpointId;
-            LOG.debug(
-                    "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
+            if(barrierId != ControlMessage.FixedEpochNumber()){
+                lastCancelledOrCompletedCheckpointId = currentCheckpointId;
+                LOG.debug(
+                        "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
+            }
             resetAlignmentTimer();
             allBarriersReceivedFuture.complete(null);
         }
@@ -305,7 +309,9 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
             if (isCheckpointPending()) {
                 cancelSubsumedCheckpoint(barrierId);
             }
-            currentCheckpointId = barrierId;
+            if(barrier.getId() != ControlMessage.FixedEpochNumber()){
+                currentCheckpointId = barrierId;
+            }
             numBarriersReceived = 0;
             allBarriersReceivedFuture = new CompletableFuture<>();
             return true;
@@ -399,12 +405,14 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     }
 
     public CompletableFuture<Void> getAllBarriersReceivedFuture(long checkpointId) {
-        if (checkpointId < currentCheckpointId) {
-            return FutureUtils.completedVoidFuture();
-        }
-        if (checkpointId > currentCheckpointId) {
-            throw new IllegalStateException(
-                    "Checkpoint " + checkpointId + " has not been started at all");
+        if(checkpointId != ControlMessage.FixedEpochNumber()){
+            if (checkpointId < currentCheckpointId) {
+                return FutureUtils.completedVoidFuture();
+            }
+            if (checkpointId > currentCheckpointId) {
+                throw new IllegalStateException(
+                        "Checkpoint " + checkpointId + " has not been started at all");
+            }
         }
         return allBarriersReceivedFuture;
     }
