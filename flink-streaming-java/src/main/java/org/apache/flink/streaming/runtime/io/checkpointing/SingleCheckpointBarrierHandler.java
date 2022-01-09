@@ -199,13 +199,15 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
             throws IOException {
         long barrierId = barrier.getId();
 
-        LOG.debug("{}: Received barrier from channel {} @ {}.", taskName, channelInfo, barrierId);
+        LOG.debug("{}: Received barrier from channel {} @ {}. {},{},{}", taskName, channelInfo, barrierId,currentCheckpointId, lastCancelledOrCompletedCheckpointId, lastTrueCheckpointId);
+        
 
         if (currentCheckpointId > barrierId
                 || (currentCheckpointId == barrierId && !isCheckpointPending())) {
             if (!barrier.getCheckpointOptions().isUnalignedCheckpoint()) {
                 inputs[channelInfo.getGateIdx()].resumeConsumption(channelInfo);
             }
+            System.out.println("checkpoint barrier "+barrierId+" discarded!!!");
             return;
         }
 
@@ -224,10 +226,6 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         // trigger a checkpoint with unfinished future for alignment duration
         if (numBarriersReceived == numOpenChannels) {
             if (getNumOpenChannels() > 1) {
-                if(currentCheckpointId == ControlMessage.FixedEpochNumber()){
-                    currentCheckpointId = lastTrueCheckpointId;
-                    lastCancelledOrCompletedCheckpointId = lastTrueCheckpointId;
-                }
                 markAlignmentEnd();
             }
         }
@@ -246,6 +244,10 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
             if(currentCheckpointId!= ControlMessage.FixedEpochNumber()) lastTrueCheckpointId = currentCheckpointId;
             LOG.debug(
                     "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
+            if(currentCheckpointId == ControlMessage.FixedEpochNumber()){
+                currentCheckpointId = lastTrueCheckpointId;
+                lastCancelledOrCompletedCheckpointId = lastTrueCheckpointId;
+            }
             resetAlignmentTimer();
             allBarriersReceivedFuture.complete(null);
         }

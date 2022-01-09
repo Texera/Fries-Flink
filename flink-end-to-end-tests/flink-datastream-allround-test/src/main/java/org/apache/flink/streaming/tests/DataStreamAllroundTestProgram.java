@@ -28,6 +28,7 @@ import org.apache.flink.formats.avro.typeutils.AvroSerializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
@@ -86,7 +87,7 @@ public class DataStreamAllroundTestProgram {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[]{
                 "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
-                "--environment.checkpoint_interval","100",
+                "--environment.checkpoint_interval","30000000",
         });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -95,9 +96,21 @@ public class DataStreamAllroundTestProgram {
 
         // add a keyed stateful map operator, which uses Kryo for state serialization
         DataStream<Event> eventStream =
-                env.addSource(createEventSource(pt))
-                        .name(EVENT_SOURCE.getName())
-                        .uid(EVENT_SOURCE.getUid()).setParallelism(4);
+                env.addSource(new SourceFunction<Event>() {
+                    int count = 0;
+                    @Override
+                    public void run(SourceContext<Event> ctx) throws Exception {
+                        while(count<10000){
+                            Thread.sleep(1000);
+                            ctx.collect(new Event(1,1,1,"123"));
+                        }
+                    }
+
+                    @Override
+                    public void cancel() {
+
+                    }
+                }).setParallelism(1);
 
         DataStream<Event> eventStream2 =
                 env.addSource(createEventSource(pt)).setParallelism(4);
