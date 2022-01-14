@@ -89,7 +89,7 @@ public class DataStreamAllroundTestProgram {
 
         setupEnvironment(env, pt);
 
-        ControlMessage.setConsumer(new Consumer<Object[]>() {
+        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
             @Override
             public void accept(Object[] objects) {
                 System.out.println(123123);
