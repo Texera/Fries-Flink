@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.io.network.api;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;

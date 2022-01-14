@@ -19,18 +19,10 @@ package org.apache.flink.streaming.tests;
 
 
 
-import controller.ControlMessage;
 
-import controller.Controller;
-
-import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.api.java.io.RowCsvInputFormat;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.core.fs.Path;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
@@ -38,7 +30,6 @@ import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.source.ParallelSourceFunction;
 import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunction;
-import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
@@ -51,8 +42,6 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.setupEnvironment;
@@ -81,15 +70,15 @@ public class JoinWithStaticExample {
                 "--enable-logging","false",
         });
 
-        Controller.controlInitialDelay_$eq(60000); //60s
-        Controller.controlNonstop_$eq(false); // do it once
-        Controller.controlMode_$eq("dcm"); // use dcm
-        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
-            @Override
-            public void accept(Object[] objects) {
-                System.setProperty("optimized","true");
-            }
-        });
+//        Controller.controlInitialDelay_$eq(60000); //60s
+//        Controller.controlNonstop_$eq(false); // do it once
+//        Controller.controlMode_$eq("dcm"); // use dcm
+//        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
+//            @Override
+//            public void accept(Object[] objects) {
+//                System.setProperty("control received","true");
+//            }
+//        });
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
         int costFactor = 25;
@@ -182,7 +171,7 @@ public class JoinWithStaticExample {
                     Row value,
                     ProcessFunction<Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
-                if(System.getProperty("optimized")==null){
+                if(System.getProperty("control received")==null){
                     busySleep(fraudDetectorProcessingDelay);
                 }
                 out.collect(true);

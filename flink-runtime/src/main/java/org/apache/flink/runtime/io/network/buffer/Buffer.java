@@ -18,8 +18,6 @@
 
 package org.apache.flink.runtime.io.network.buffer;
 
-import controller.ControlMessage;
-
 import org.apache.flink.core.memory.MemorySegment;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;

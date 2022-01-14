@@ -1,4 +1,4 @@
-package controller
+package org.apache.flink.runtime.controller
 
 import java.util.function.Consumer
 

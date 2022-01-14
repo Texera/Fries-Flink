@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.taskexecutor;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.annotation.VisibleForTesting;
 import org.apache.flink.api.common.JobID;

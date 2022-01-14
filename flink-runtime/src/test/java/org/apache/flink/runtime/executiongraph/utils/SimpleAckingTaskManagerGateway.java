@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.executiongraph.utils;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.time.Time;

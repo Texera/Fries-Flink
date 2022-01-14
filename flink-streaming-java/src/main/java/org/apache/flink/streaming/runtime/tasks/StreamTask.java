@@ -19,7 +19,7 @@ package org.apache.flink.streaming.runtime.tasks;
 
 import com.google.common.collect.HashBiMap;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;

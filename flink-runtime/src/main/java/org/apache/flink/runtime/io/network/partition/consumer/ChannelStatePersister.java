@@ -17,7 +17,7 @@
 
 package org.apache.flink.runtime.io.network.partition.consumer;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;
@@ -32,8 +32,6 @@ import org.apache.flink.util.CloseableIterator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import scala.Option;
 
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.NotThreadSafe;

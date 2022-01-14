@@ -18,8 +18,7 @@
 
 package org.apache.flink.streaming.runtime.io.checkpointing;
 
-import controller.ControlMessage;
-import controller.ControlMessage$;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.runtime.checkpoint.CheckpointException;
 import org.apache.flink.runtime.checkpoint.CheckpointFailureReason;

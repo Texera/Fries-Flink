@@ -18,9 +18,7 @@
 
 package org.apache.flink.runtime.io.network.api.serialization;
 
-import controller.ControlMessage;
-
-import controller.ControlMessage$;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.core.memory.DataInputDeserializer;
 import org.apache.flink.core.memory.DataOutputSerializer;

@@ -18,51 +18,19 @@
 
 package org.apache.flink.streaming.tests;
 
-import controller.ControlMessage;
-
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.ValueState;
-import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.api.java.utils.ParameterTool;
-import org.apache.flink.formats.avro.typeutils.AvroSerializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
-import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
-import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.tests.avro.ComplexPayloadAvro;
-import org.apache.flink.streaming.tests.avro.InnerPayLoadAvro;
-import org.apache.flink.util.Collector;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import java.util.function.Consumer;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.applyTumblingWindows;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createArtificialKeyedStateMapper;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createArtificialOperatorStateMapper;
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createEventSource;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createFailureMapper;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createSemanticsCheckMapper;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createSlidingWindow;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createSlidingWindowCheckMapper;
-import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.isSimulateFailures;
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.setupEnvironment;
 import static org.apache.flink.streaming.tests.TestOperatorEnum.EVENT_SOURCE;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.FAILURE_MAPPER_NAME;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.KEYED_STATE_OPER_WITH_AVRO_SER;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.OPERATOR_STATE_OPER;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.SEMANTICS_CHECK_MAPPER;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.SEMANTICS_CHECK_PRINT_SINK;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.SLIDING_WINDOW_AGG;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.SLIDING_WINDOW_CHECK_MAPPER;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.SLIDING_WINDOW_CHECK_PRINT_SINK;
-import static org.apache.flink.streaming.tests.TestOperatorEnum.TIME_WINDOW_OPER;
 
 /**
  * A general purpose test job for Flink's DataStream API operators and primitives.
@@ -89,13 +57,13 @@ public class DataStreamAllroundTestProgram {
 
         setupEnvironment(env, pt);
 
-        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
-            @Override
-            public void accept(Object[] objects) {
-                System.out.println(123123);
-                System.setProperty("delay", "false");
-            }
-        });
+//        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
+//            @Override
+//            public void accept(Object[] objects) {
+//                System.out.println(123123);
+//                System.setProperty("delay", "false");
+//            }
+//        });
 
         // add a keyed stateful map operator, which uses Kryo for state serialization
         DataStream<Event> eventStream =

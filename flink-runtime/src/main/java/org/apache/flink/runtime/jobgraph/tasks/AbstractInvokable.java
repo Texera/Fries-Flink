@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.jobgraph.tasks;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.configuration.Configuration;

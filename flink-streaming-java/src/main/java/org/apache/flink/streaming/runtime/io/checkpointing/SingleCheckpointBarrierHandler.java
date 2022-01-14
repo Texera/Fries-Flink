@@ -18,7 +18,7 @@
 
 package org.apache.flink.streaming.runtime.io.checkpointing;
 
-import controller.ControlMessage;
+import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.annotation.VisibleForTesting;
