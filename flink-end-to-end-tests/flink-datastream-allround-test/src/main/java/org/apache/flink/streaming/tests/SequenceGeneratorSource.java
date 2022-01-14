@@ -131,7 +131,7 @@ public class SequenceGeneratorSource extends RichParallelSourceFunction<Event>
                                 value,
                                 StringUtils.getRandomString(
                                         random, payloadLength, payloadLength, 'A', 'z'));
-                Thread.sleep(1000);
+
                 ctx.collect(event);
             }
 

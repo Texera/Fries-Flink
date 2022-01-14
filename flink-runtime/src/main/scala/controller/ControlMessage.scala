@@ -25,6 +25,8 @@ object ControlMessage{
       objIn.close()
       obj
     }
+
+  var consumer:Consumer[Array[Object]] with scala.Serializable = null
 }
 
 

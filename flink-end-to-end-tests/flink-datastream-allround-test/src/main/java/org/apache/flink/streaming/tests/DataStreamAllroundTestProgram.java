@@ -18,7 +18,8 @@
 
 package org.apache.flink.streaming.tests;
 
-import org.apache.flink.api.common.functions.JoinFunction;
+import controller.ControlMessage;
+
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -28,12 +29,8 @@ import org.apache.flink.formats.avro.typeutils.AvroSerializer;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.PrintSinkFunction;
-import org.apache.flink.streaming.api.functions.source.SourceFunction;
+import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.streaming.api.functions.windowing.WindowFunction;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
-import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
-import org.apache.flink.streaming.api.windowing.assigners.WindowAssigner;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.streaming.tests.avro.ComplexPayloadAvro;
 import org.apache.flink.streaming.tests.avro.InnerPayLoadAvro;
@@ -42,6 +39,7 @@ import org.apache.flink.util.Collector;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -85,44 +83,36 @@ import static org.apache.flink.streaming.tests.TestOperatorEnum.TIME_WINDOW_OPER
 public class DataStreamAllroundTestProgram {
 
     public static void main(String[] args) throws Exception {
-        final ParameterTool pt = ParameterTool.fromArgs(new String[]{
-                "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
-                "--environment.checkpoint_interval","30000000",
-        });
+        final ParameterTool pt = ParameterTool.fromArgs(args);
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
         setupEnvironment(env, pt);
 
-        // add a keyed stateful map operator, which uses Kryo for state serialization
-        DataStream<Event> eventStream =
-                env.addSource(new SourceFunction<Event>() {
-                    int count = 0;
-                    @Override
-                    public void run(SourceContext<Event> ctx) throws Exception {
-                        while(count<10000){
-                            Thread.sleep(1000);
-                            ctx.collect(new Event(1,1,1,"123"));
-                        }
-                    }
-
-                    @Override
-                    public void cancel() {
-
-                    }
-                }).setParallelism(1);
-
-        DataStream<Event> eventStream2 =
-                env.addSource(createEventSource(pt)).setParallelism(4);
-
-        eventStream.shuffle().join(eventStream2).where(Event::getKey).equalTo(Event::getKey).window(
-                TumblingProcessingTimeWindows.of(Time.seconds(5))).apply(new JoinFunction<Event, Event, Object>() {
+        ControlMessage.setConsumer(new Consumer<Object[]>() {
             @Override
-            public Object join(Event first, Event second) throws Exception {
-                System.out.println(first+" "+second);
-                return null;
+            public void accept(Object[] objects) {
+                System.out.println(123123);
+                System.setProperty("delay", "false");
             }
         });
+
+        // add a keyed stateful map operator, which uses Kryo for state serialization
+        DataStream<Event> eventStream =
+                env.addSource(createEventSource(pt))
+                        .name(EVENT_SOURCE.getName())
+                        .uid(EVENT_SOURCE.getUid()).setParallelism(1);
+        eventStream.map(new MapFunction<Event, Object>() {
+            @Override
+            public Object map(Event value) throws Exception {
+                System.out.println(value);
+                if(System.getProperty("delay") == null)
+                Thread.sleep(1000);
+                return "123";
+            }
+        }).setParallelism(1).addSink(new SinkFunction<Object>() {
+
+        }).setParallelism(1);
 
         env.execute("General purpose test job");
     }

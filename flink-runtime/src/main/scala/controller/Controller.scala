@@ -11,17 +11,29 @@ import java.util.function.Consumer
 
 object Controller {
 
-  val controlInterval:Int = if(System.getProperty("controlInterval") == null){
+  var controlNonstop:Boolean = if(System.getProperty("controlNonstop") == null){
+    true
+  }else{
+    System.getProperty("controlNonstop").toBoolean
+  }
+
+  var controlInitialDelay:Int = if(System.getProperty("controlInitialDelay") == null){
+    10000
+  }else{
+    System.getProperty("controlInitialDelay").toInt
+  }
+
+  var controlInterval:Int = if(System.getProperty("controlInterval") == null){
     10000
   }else{
     System.getProperty("controlInterval").toInt
   }
-  val controlMode = if(System.getProperty("controlMode") == null){
+  var controlMode = if(System.getProperty("controlMode") == null){
     "epoch"
   }else{
     System.getProperty("controlMode")
   }
-  val controlDest:String = if(System.getProperty("controlDest") == null){
+  var controlDest:String = if(System.getProperty("controlDest") == null){
     "final"
   }else{
     System.getProperty("controlDest")
@@ -50,11 +62,14 @@ object Controller {
         val currentIteration = iteration
         val innerJobID = jobID
         iteration +=1
-        val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
-          override def accept(t: Array[Object]): Unit = {
-            println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
+        if(ControlMessage.consumer == null){
+          ControlMessage.consumer = new Consumer[Array[Object]] with Serializable {
+            override def accept(t: Array[Object]): Unit = {
+              println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
+            }
           }
-        }, controlMode == "epoch")
+        }
+        val message = ControlMessage(ControlMessage.consumer, controlMode == "epoch")
         controlMode match{
           case "epoch" =>
             val iter = graph.getVerticesTopologically.iterator()
@@ -71,7 +86,11 @@ object Controller {
         println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
       }
     }
-    t.schedule(task, 10000, controlInterval)
+    if(controlNonstop){
+      t.schedule(task, controlInitialDelay, controlInterval)
+    }else{
+      t.schedule(task, controlInitialDelay)
+    }
     graph.getTerminationFuture.thenAccept(new Consumer[JobStatus] {
       override def accept(t: JobStatus): Unit = {
         task.cancel()
