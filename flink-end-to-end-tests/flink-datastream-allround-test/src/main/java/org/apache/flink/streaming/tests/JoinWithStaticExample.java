@@ -20,6 +20,7 @@ package org.apache.flink.streaming.tests;
 
 
 
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -80,10 +81,10 @@ public class JoinWithStaticExample {
 //            }
 //        });
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        int workerNum = 1;
+        int workerNum = 10;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
         int costFactor = 25;
-        int sourceTupleCount = (24386900/10)*workerNum; // 24386900 max
+        int sourceTupleCount = 24386900; // 24386900 max
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
@@ -165,14 +166,25 @@ public class JoinWithStaticExample {
                 out.collect(value);
 
         }}).setParallelism(parallelism).process(new ProcessFunction<Row, Boolean>() {
+            String myID = "";
+
+            @Override
+            public void setRuntimeContext(RuntimeContext t) {
+                super.setRuntimeContext(t);
+                myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
+                System.out.println("get name of the task = "+myID);
+            }
 
             @Override
             public void processElement(
                     Row value,
                     ProcessFunction<Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
-                if(System.getProperty("control received")==null){
+
+                if(System.getProperty(myID)==null){
                     busySleep(fraudDetectorProcessingDelay);
+                }else{
+                    busySleep(40000);
                 }
                 out.collect(true);
             }

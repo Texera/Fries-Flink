@@ -70,9 +70,10 @@ object Controller {
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           override def accept(t: Array[Object]): Unit = {
             if(t(0).asInstanceOf[JobVertexID] == vertexId){
-              System.setProperty("control received", "true")
+              println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received control message!")
+              System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, "true")
             }
-            println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
+            println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
           }
         }, controlMode == "epoch")
         controlMode match{

@@ -19,12 +19,15 @@
 package org.apache.flink.streaming.tests;
 
 import org.apache.flink.api.common.functions.MapFunction;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.util.Collector;
 
 import java.util.function.Consumer;
 
@@ -70,14 +73,28 @@ public class DataStreamAllroundTestProgram {
                 env.addSource(createEventSource(pt))
                         .name(EVENT_SOURCE.getName())
                         .uid(EVENT_SOURCE.getUid()).setParallelism(1);
-        eventStream.map(new MapFunction<Event, Object>() {
+        eventStream.process(new ProcessFunction<Event, Object>() {
+
+            String myID = "";
+
             @Override
-            public Object map(Event value) throws Exception {
-                System.out.println(value);
-                if(System.getProperty("delay") == null)
-                Thread.sleep(1000);
-                return "123";
+            public void setRuntimeContext(RuntimeContext t) {
+                super.setRuntimeContext(t);
+                myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
+                System.out.println("get name of the task = "+myID);
             }
+
+            @Override
+            public void processElement(
+                    Event value,
+                    ProcessFunction<Event, Object>.Context ctx,
+                    Collector<Object> out) throws Exception {
+                System.out.println(value);
+                if(System.getProperty(myID) == null)
+                    Thread.sleep(1000);
+                out.collect("123");
+            }
+
         }).setParallelism(1).addSink(new SinkFunction<Object>() {
 
         }).setParallelism(1);
