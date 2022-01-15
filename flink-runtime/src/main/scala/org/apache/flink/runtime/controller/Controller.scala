@@ -2,6 +2,7 @@ package org.apache.flink.runtime.controller
 
 import org.apache.flink.api.common.JobStatus
 import org.apache.flink.runtime.executiongraph.ExecutionGraph
+import org.apache.flink.runtime.jobgraph.JobVertexID
 
 import java.util.TimerTask
 import java.util.function.Consumer
@@ -61,7 +62,9 @@ object Controller {
         iteration +=1
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           override def accept(t: Array[Object]): Unit = {
-            System.setProperty("control received", "true")
+            if(t(0).asInstanceOf[JobVertexID] == vertexId){
+              System.setProperty("control received", "true")
+            }
             println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}) $currentIteration time=${ System.currentTimeMillis()}")
           }
         }, controlMode == "epoch")
