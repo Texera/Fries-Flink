@@ -80,10 +80,10 @@ public class JoinWithStaticExample {
 //            }
 //        });
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+        int workerNum = 1;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
         int costFactor = 25;
-        int sourceTupleCount = 24386900; // 24386900 max
-        int workerNum = 1;
+        int sourceTupleCount = (24386900/10)*workerNum; // 24386900 max
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;

@@ -45,15 +45,22 @@ object Controller {
     val task: TimerTask = new java.util.TimerTask {
       var iteration = 0;
       override def run(): Unit = {
+        val iter = graph.getVerticesTopologically.iterator()
         val targetVertex = controlDest match{
           case "final" =>
-            val iter = graph.getVerticesTopologically.iterator()
             var last = iter.next()
             while(iter.hasNext){
               last = iter.next()
             }
             last
+          case other =>
+            var current = iter.next()
+            while(!current.getJobVertex.getName.contains(other) && iter.hasNext){
+              current = iter.next()
+            }
+            current
         }
+        println(s"${jobID} target vextex = ${targetVertex.getName}")
         val targetExecVertex = targetVertex.getTaskVertices.head
         val vertexId = targetExecVertex.getJobvertexId
         val idx = targetExecVertex.getID.getSubtaskIndex
