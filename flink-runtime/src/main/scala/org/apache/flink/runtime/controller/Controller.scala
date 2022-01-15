@@ -85,7 +85,7 @@ object Controller {
               }
             }
           case "dcm" =>
-            targetVertex.getTaskVertices.head.sendControlMessage(message)
+            targetVertex.getTaskVertices.foreach(x => x.sendControlMessage(message))
           case other =>
         }
         println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
