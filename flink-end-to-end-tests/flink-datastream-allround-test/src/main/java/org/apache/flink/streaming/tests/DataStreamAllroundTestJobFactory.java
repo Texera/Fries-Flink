@@ -268,6 +268,7 @@ public class DataStreamAllroundTestJobFactory {
 
         final String checkpointDir = pt.getRequired(STATE_BACKEND_CHECKPOINT_DIR.key());
         env.getCheckpointConfig().setCheckpointStorage(checkpointDir);
+        env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
 
         boolean enableExternalizedCheckpoints =
                 pt.getBoolean(

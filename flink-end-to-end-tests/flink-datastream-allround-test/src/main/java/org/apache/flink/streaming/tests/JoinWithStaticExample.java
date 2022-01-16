@@ -21,9 +21,17 @@ package org.apache.flink.streaming.tests;
 
 
 import org.apache.flink.api.common.functions.RuntimeContext;
+import org.apache.flink.api.common.state.ListState;
+import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.api.common.state.MapState;
+import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.runtime.state.FunctionInitializationContext;
+import org.apache.flink.runtime.state.FunctionSnapshotContext;
+import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
@@ -35,14 +43,19 @@ import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStreamReader;
+import java.io.ObjectOutputStream;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.setupEnvironment;
@@ -62,13 +75,17 @@ public class JoinWithStaticExample {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--state_backend.checkpoint_directory", "file:///home/shengqun97/",
+                "--state_backend.checkpoint_directory", "file:///home/12198/checkpoints",
+                "--environment.checkpoint_interval","180000",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
                 "--test.simulate_failure.num_records", "100",
+                "--environment.restart_strategy","no_restart",
                 "--print-level", "0",
 //                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
-                "--enable-logging","false",
+                "--enable-logging","true",
+                "--clear-old-log","true",
+                "--storage-type","local"
         });
 
 //        Controller.controlInitialDelay_$eq(60000); //60s
@@ -83,38 +100,61 @@ public class JoinWithStaticExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
-        int costFactor = 25;
+        int costFactor = 1;
         int sourceTupleCount = 24386900; // 24386900 max
+        int failureTupleIdx =  18000000;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
         int sourceDelay = 0; // 50000/ingestionFactor;
         int fraudDetectorProcessingDelay = 200000*costFactor;  //sleep x ns
         setupEnvironment(env, pt);
-        Configuration conf = new Configuration();
-        FileSystem fs = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf);
-        BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"))));
-        reader.readLine();
-        String strLine;
-        HashMap<String, HashSet<String>> untrusted = new HashMap<>();
-        for(int i=0;i<100 && (strLine = reader.readLine())!= null;++i)   {
-            String[] arr = strLine.split(",");
-            if(!untrusted.containsKey(arr[9])){
-                untrusted.put(arr[9], new HashSet<>());
-            }
-            untrusted.get(arr[9]).add(arr[8]);
-        }
-        reader.close();
 
-        DataStream<Row> dynamicSource = env.addSource(new ParallelSourceFunction<Row>() {
+        abstract class MySource implements CheckpointedFunction, ParallelSourceFunction<Row> {
+
+        }
+
+        abstract class MyParser extends KeyedProcessFunction<Integer, Row, Row> implements CheckpointedFunction{
+
+        }
+
+        DataStream<Row> dynamicSource = env.addSource(new MySource() {
+            FSDataInputStream stream = null;
+            ListState<Long> state = null;
+            boolean recovered = false;
+            long current = 0;
+
             @Override
-            public void run(SourceContext<Row> ctx) throws Exception {
+            public void snapshotState(FunctionSnapshotContext context) throws Exception {
+                long pos = stream.getPos();
+                state.clear();
+                state.add(pos);
+                state.add(current);
+                System.out.println("Saved the current pos = "+pos+" current count = "+current);
+
+            }
+
+            @Override
+            public void initializeState(FunctionInitializationContext context) throws Exception {
                 Configuration conf2 = new Configuration();
                 FileSystem fs2 = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf2);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(fs2.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"))));
+                stream = fs2.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"));
+                state = context.getOperatorStateStore().getListState(new ListStateDescriptor(
+                        "state", Long.class));
+                Iterator<Long> iter = state.get().iterator();
+                if(iter.hasNext()){
+                    stream.seek(iter.next());
+                    current = iter.next();
+                    recovered = true;
+                }
+                System.out.println("recovered the current pos = "+stream.getPos()+" current count = "+current);
+            }
+
+            @Override
+            public void run(SourceContext<Row> ctx) throws Exception {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
                 reader.readLine();
                 String strLine2;
-                int current = 0;
                 int limit = sourceTupleCount/sourceParallelism;
                 while ((strLine2 = reader.readLine()) != null && current < limit)   {
                     busySleep(sourceDelay);
@@ -122,7 +162,11 @@ public class JoinWithStaticExample {
                     Row r = new Row(14);
                     r.setField(0, Integer.parseInt(arr[0])); //user
                     r.setField(1, Integer.parseInt(arr[1])); //card
-                    r.setField(2, Integer.parseInt(arr[2])); //year
+                    if(current == failureTupleIdx){
+                        r.setField(2, -2022); //year
+                    }else{
+                        r.setField(2, Integer.parseInt(arr[2])); //year
+                    }
                     r.setField(3, Integer.parseInt(arr[3])); //month
                     r.setField(4, Integer.parseInt(arr[4])); //date
                     r.setField(5, arr[5]); //time
@@ -147,23 +191,55 @@ public class JoinWithStaticExample {
         }).setParallelism(sourceParallelism);
         dynamicSource.keyBy((KeySelector<Row, Integer>) value -> {
             return value.getField(10).hashCode(); //use merchant state
-        }).process(new KeyedProcessFunction<Integer, Row, Row>() {
-            HashMap<String, HashSet<String>> merchants = untrusted;
+        }).process(new MyParser() {
+            HashMap<String, HashSet<String>> untrusted = new HashMap<>();
+            ListState<String> stringListState = null;
+
+            @Override
+            public void snapshotState(FunctionSnapshotContext context) throws Exception {
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                ObjectOutputStream os = new ObjectOutputStream(bos);
+                os.writeObject(untrusted);
+                String serialized_untrusted = bos.toString();
+                os.close();
+                busySleep(10000000000L);
+                stringListState.add(serialized_untrusted);
+            }
+
+            @Override
+            public void initializeState(FunctionInitializationContext context) throws Exception {
+                stringListState = context.getOperatorStateStore().getListState(new ListStateDescriptor(
+                        "listState", String.class));
+                Configuration conf = new Configuration();
+                FileSystem fs = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf);
+                BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"))));
+                reader.readLine();
+                String strLine;
+                for(int i=0;i<100 && (strLine = reader.readLine())!= null;++i)   {
+                    String[] arr = strLine.split(",");
+                    if(!untrusted.containsKey(arr[9])){
+                        untrusted.put(arr[9], new HashSet<>());
+                    }
+                    untrusted.get(arr[9]).add(arr[8]);
+                }
+                reader.close();
+            }
+
             @Override
             public void processElement(
                     Row value,
                     Context ctx,
                     Collector<Row> out) throws Exception {
-//                Row enrichment = new Row(2);
-//                HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
-//                if(merchants != null && merchants.contains((String)value.getFieldAs(8))){
-//                    enrichment.setField(0, true);
-//                }else{
-//                    enrichment.setField(0, false);
-//                }
-//                enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
-//                out.collect(Row.join(value, enrichment));
-                out.collect(value);
+                Row enrichment = new Row(2);
+                HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
+                if(merchants != null && merchants.contains((String)value.getFieldAs(8))){
+                    enrichment.setField(0, true);
+                }else{
+                    enrichment.setField(0, false);
+                }
+                enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
+                out.collect(Row.join(value, enrichment));
+                //out.collect(value);
 
         }}).setParallelism(parallelism).process(new ProcessFunction<Row, Boolean>() {
             String myID = "";
@@ -173,6 +249,7 @@ public class JoinWithStaticExample {
                 super.setRuntimeContext(t);
                 myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
                 System.out.println("get name of the task = "+myID);
+                System.out.println(myID+" start time="+System.currentTimeMillis());
             }
 
             @Override
@@ -181,11 +258,17 @@ public class JoinWithStaticExample {
                     ProcessFunction<Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
 
-                if(System.getProperty(myID)==null){
-                    busySleep(fraudDetectorProcessingDelay);
-                }else{
-                    busySleep(40000);
+                if((int)value.getField(2) < 0){
+                    System.out.println(myID+" error occur time="+System.currentTimeMillis());
+                    //throw new RuntimeException("error occurred");
                 }
+                busySleep(fraudDetectorProcessingDelay);
+
+//                if(System.getProperty(myID)==null){
+//                    busySleep(fraudDetectorProcessingDelay);
+//                }else{
+//                    busySleep(40000);
+//                }
                 out.collect(true);
             }
         }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {

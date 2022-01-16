@@ -512,14 +512,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             isPausedFuture.set();
         });
         mailResolver.bind("exp", () ->{});
+        final String name = info.getTaskName();
         mailResolver.bind("control", x ->{
             ControlMessage controlMessage = (ControlMessage)x[0];
-            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx});
+            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
             if(controlMessage.EpochMode()){
                 CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                if(subtaskIdx == 0){
-                    barrier.setMessage(controlMessage);
-                }
+                barrier.setMessage(controlMessage);
                 operatorChain.broadcastEvent(barrier, false);
             }
         });
