@@ -54,7 +54,9 @@ import static org.apache.flink.streaming.tests.TestOperatorEnum.EVENT_SOURCE;
 public class DataStreamAllroundTestProgram {
 
     public static void main(String[] args) throws Exception {
-        final ParameterTool pt = ParameterTool.fromArgs(args);
+        final ParameterTool pt = ParameterTool.fromArgs(new String[] {
+                "--classloader.check-leaked-classloader","false",
+                "--metrics.fetcher.update-interval", "1000"});
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -90,7 +92,7 @@ public class DataStreamAllroundTestProgram {
                     ProcessFunction<Event, Object>.Context ctx,
                     Collector<Object> out) throws Exception {
                 System.out.println(value);
-                if(System.getProperty(myID) == null)
+                //if(System.getProperty(myID) == null)
                     Thread.sleep(1000);
                 out.collect("123");
             }

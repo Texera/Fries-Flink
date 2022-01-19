@@ -25,7 +25,11 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ValueState;
+import org.apache.flink.api.common.state.ValueStateDescriptor;
+import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.api.common.typeinfo.Types;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
@@ -45,6 +49,7 @@ import org.apache.flink.util.Collector;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -56,6 +61,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.setupEnvironment;
@@ -76,14 +82,15 @@ public class JoinWithStaticExample {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
                 "--state_backend.checkpoint_directory", "file:///home/12198/checkpoints",
-                "--environment.checkpoint_interval","180000",
+                "--environment.checkpoint_interval","10000000",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
                 "--test.simulate_failure.num_records", "100",
                 "--environment.restart_strategy","no_restart",
                 "--print-level", "0",
+                // "--state.backend.rocksdb.memory.managed","false",
 //                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
-                "--enable-logging","true",
+                "--enable-logging","false",
                 "--clear-old-log","true",
                 "--storage-type","local"
         });
@@ -100,13 +107,13 @@ public class JoinWithStaticExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
-        int costFactor = 1;
+        int costFactor = 25;
         int sourceTupleCount = 24386900; // 24386900 max
-        int failureTupleIdx =  18000000;
+        int failureTupleIdx =  -18000000;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
-        int sourceDelay = 0; // 50000/ingestionFactor;
+        int sourceDelay = 0; //50000/ingestionFactor;
         int fraudDetectorProcessingDelay = 200000*costFactor;  //sleep x ns
         setupEnvironment(env, pt);
 
@@ -190,39 +197,52 @@ public class JoinWithStaticExample {
             }
         }).setParallelism(sourceParallelism);
         dynamicSource.keyBy((KeySelector<Row, Integer>) value -> {
-            return value.getField(10).hashCode(); //use merchant state
+            return value.getField(0).hashCode();
         }).process(new MyParser() {
-            HashMap<String, HashSet<String>> untrusted = new HashMap<>();
-            ListState<String> stringListState = null;
+            //MapState<String, HashSet<String>> untrusted = null;
+            HashMap<Integer, ArrayList<Row>> prev_transaction = new HashMap<>();
+            MapState<Integer, ArrayList<Row>> prev_transaction_state= null;
+
+            @Override
+            public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
+                super.open(parameters);
+//                untrusted = getRuntimeContext().getMapState(new MapStateDescriptor<String, HashSet<String>>("untrusted",
+//                        Types.STRING,
+//                        TypeInformation.of(new TypeHint<HashSet<String>>(){})));
+//                prev_transaction_state = getRuntimeContext().getMapState(new MapStateDescriptor<Integer, ArrayList<Row>>("prev_transactions",
+//                        Types.INT,
+//                        TypeInformation.of(new TypeHint<ArrayList<Row>>(){})));
+//                Configuration conf = new Configuration();
+//                FileSystem fs = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf);
+//                BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(new Path("/IBM-transaction-dataset.csv"))));
+//                reader.readLine();
+//                String strLine;
+//                for(int i=0;i<10000 && (strLine = reader.readLine())!= null;++i)   {
+//                    String[] arr = strLine.split(",");
+//                    if(!untrusted.contains(arr[9])){
+//                        untrusted.put(arr[9], new HashSet<>());
+//                    }
+//                    untrusted.get(arr[9]).add(arr[8]);
+//                }
+//                reader.close();
+            }
 
             @Override
             public void snapshotState(FunctionSnapshotContext context) throws Exception {
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                ObjectOutputStream os = new ObjectOutputStream(bos);
-                os.writeObject(untrusted);
-                String serialized_untrusted = bos.toString();
-                os.close();
-                busySleep(10000000000L);
-                stringListState.add(serialized_untrusted);
+                prev_transaction_state.clear();
+                prev_transaction_state.putAll(prev_transaction);
+//                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+//                ObjectOutputStream os = new ObjectOutputStream(bos);
+//                os.writeObject(untrusted);
+//                os.writeObject(previous_transaction);
+//                String serialized_untrusted = bos.toString();
+//                os.close();
+//                //busySleep(10000000000L);
+//                stringListState.add(serialized_untrusted);
             }
 
             @Override
             public void initializeState(FunctionInitializationContext context) throws Exception {
-                stringListState = context.getOperatorStateStore().getListState(new ListStateDescriptor(
-                        "listState", String.class));
-                Configuration conf = new Configuration();
-                FileSystem fs = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf);
-                BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"))));
-                reader.readLine();
-                String strLine;
-                for(int i=0;i<100 && (strLine = reader.readLine())!= null;++i)   {
-                    String[] arr = strLine.split(",");
-                    if(!untrusted.containsKey(arr[9])){
-                        untrusted.put(arr[9], new HashSet<>());
-                    }
-                    untrusted.get(arr[9]).add(arr[8]);
-                }
-                reader.close();
             }
 
             @Override
@@ -231,12 +251,20 @@ public class JoinWithStaticExample {
                     Context ctx,
                     Collector<Row> out) throws Exception {
                 Row enrichment = new Row(2);
-                HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
-                if(merchants != null && merchants.contains((String)value.getFieldAs(8))){
-                    enrichment.setField(0, true);
-                }else{
-                    enrichment.setField(0, false);
-                }
+                //HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
+//                Integer user = (Integer) value.getField(0);
+//                if(!prev_transaction.containsKey(user)) {
+//                    prev_transaction.put(user, new ArrayList<Row>());
+//                }
+//                prev_transaction.get(user).add(value);
+//                if(prev_transaction.get(user).size() > 20000){
+//                    prev_transaction.get(user).remove(0);
+//                }
+//                if(merchants != null && merchants.contains((String)value.getFieldAs(8))){
+//                    enrichment.setField(0, true);
+//                }else{
+//                    enrichment.setField(0, false);
+//                }
                 enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
                 out.collect(Row.join(value, enrichment));
                 //out.collect(value);
@@ -262,13 +290,13 @@ public class JoinWithStaticExample {
                     System.out.println(myID+" error occur time="+System.currentTimeMillis());
                     //throw new RuntimeException("error occurred");
                 }
-                busySleep(fraudDetectorProcessingDelay);
+                // busySleep(fraudDetectorProcessingDelay);
 
-//                if(System.getProperty(myID)==null){
-//                    busySleep(fraudDetectorProcessingDelay);
-//                }else{
-//                    busySleep(40000);
-//                }
+                if(System.getProperty(myID)==null){
+                    busySleep(fraudDetectorProcessingDelay);
+                }else{
+                    busySleep(40000);
+                }
                 out.collect(true);
             }
         }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {

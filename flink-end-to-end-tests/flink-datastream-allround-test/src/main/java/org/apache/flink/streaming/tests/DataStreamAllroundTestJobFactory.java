@@ -33,6 +33,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.configuration.ConfigOption;
 import org.apache.flink.configuration.ConfigOptions;
 import org.apache.flink.contrib.streaming.state.EmbeddedRocksDBStateBackend;
+import org.apache.flink.contrib.streaming.state.RocksDBStateBackend;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -196,7 +197,7 @@ public class DataStreamAllroundTestJobFactory {
 
     private static final ConfigOption<String> STATE_BACKEND =
             ConfigOptions.key("state_backend")
-                    .defaultValue("hashmap")
+                    .defaultValue("rocks")
                     .withDescription(
                             "Supported values are 'hashmap' for HashMapStateBackend and 'rocks' "
                                     + "for EmbeddedRocksDBStateBackend.");
@@ -250,10 +251,11 @@ public class DataStreamAllroundTestJobFactory {
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(pt);
+        env.getConfig().setUseSnapshotCompression(true);
     }
 
     private static void setupCheckpointing(
-            final StreamExecutionEnvironment env, final ParameterTool pt) {
+            final StreamExecutionEnvironment env, final ParameterTool pt){
         String semantics = pt.get(TEST_SEMANTICS.key(), TEST_SEMANTICS.defaultValue());
         long checkpointInterval =
                 pt.getLong(
@@ -268,8 +270,8 @@ public class DataStreamAllroundTestJobFactory {
 
         final String checkpointDir = pt.getRequired(STATE_BACKEND_CHECKPOINT_DIR.key());
         env.getCheckpointConfig().setCheckpointStorage(checkpointDir);
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(10000);
         env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-
         boolean enableExternalizedCheckpoints =
                 pt.getBoolean(
                         ENVIRONMENT_EXTERNALIZE_CHECKPOINT.key(),

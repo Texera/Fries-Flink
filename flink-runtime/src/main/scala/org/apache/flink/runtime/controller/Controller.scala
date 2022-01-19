@@ -3,11 +3,16 @@ package org.apache.flink.runtime.controller
 import org.apache.flink.api.common.JobStatus
 import org.apache.flink.runtime.executiongraph.ExecutionGraph
 import org.apache.flink.runtime.jobgraph.JobVertexID
+import org.apache.flink.runtime.metrics.MetricNames
+import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher
+import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore.TaskMetricStore
 
 import java.util.TimerTask
-import java.util.function.Consumer
+import java.util.function.{BiConsumer, Consumer}
+import scala.collection.JavaConversions.mapAsScalaMap
 
 object Controller {
+  private var metricFetcher: MetricFetcher = null
 
   var controlNonstop:Boolean = if(System.getProperty("controlNonstop") == null){
     true
@@ -35,6 +40,16 @@ object Controller {
     "final"
   }else{
     System.getProperty("controlDest")
+  }
+
+  var metricCollectionInterval =  if(System.getProperty("metricCollection") == null){
+    10000
+  }else{
+    System.getProperty("metricCollection").toInt
+  }
+
+  def setMetricFetcher(m:MetricFetcher): Unit ={
+    metricFetcher = m
   }
 
   var jobCount = 0;
@@ -97,9 +112,39 @@ object Controller {
     }else{
       t.schedule(task, controlInitialDelay)
     }
+
+
+    def printMetrics(taskName: String, taskMetricStore: TaskMetricStore, metricName:String): Unit ={
+      val values = taskMetricStore.getAllSubtaskMetricStores.map{
+        case (mk, mv) =>
+          mv.getMetric(metricName,"0").toDouble
+      }
+      println(s"${jobID} --- $taskName --- $metricName {avg: ${values.sum/ values.size} max: ${values.max} min: ${values.min}")
+    }
+
+    val metricsCollection = new TimerTask {
+      override def run(): Unit = {
+        if(metricFetcher == null) return
+        graph.getAllVertices.foreach{
+          case (k,v) =>{
+            val taskStore = metricFetcher.getMetricStore.getTaskMetricStore(graph.getJobID.toString, k.toString)
+            if(taskStore != null){
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_IN_RATE)
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_OUT_RATE)
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_BYTES_IN_RATE)
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_BYTES_OUT_RATE)
+            }
+          }
+        }
+      }
+    }
+
+    t.schedule(metricsCollection, metricCollectionInterval, metricCollectionInterval)
+
     graph.getTerminationFuture.thenAccept(new Consumer[JobStatus] {
       override def accept(t: JobStatus): Unit = {
         task.cancel()
+        metricsCollection.cancel()
       }
     })
 
