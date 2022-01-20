@@ -76,6 +76,8 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.Vector;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
@@ -86,6 +88,9 @@ public class JoinWithStaticExample {
 
     public static void busySleep(long nanos)
     {
+        if(nanos == 0){
+            return;
+        }
         long elapsed;
         final long startTime = System.nanoTime();
         do {
@@ -93,10 +98,24 @@ public class JoinWithStaticExample {
         } while (elapsed < nanos);
     }
 
+    private static Iterator list(ClassLoader CL)
+            throws NoSuchFieldException, SecurityException,
+            IllegalArgumentException, IllegalAccessException {
+        Class CL_class = CL.getClass();
+        while (CL_class != java.lang.ClassLoader.class) {
+            CL_class = CL_class.getSuperclass();
+        }
+        java.lang.reflect.Field ClassLoader_classes_field = CL_class
+                .getDeclaredField("classes");
+        ClassLoader_classes_field.setAccessible(true);
+        Vector classes = (Vector) ClassLoader_classes_field.get(CL);
+        return classes.iterator();
+    }
+
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--state_backend.checkpoint_directory", "file:///home/12198/checkpoints",
+                //"--state_backend.checkpoint_directory", "file:///home/12198/checkpoints",
                 "--environment.checkpoint_interval","10000000",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
@@ -190,7 +209,7 @@ public class JoinWithStaticExample {
                     r.setField(4, Integer.parseInt(arr[4])); //date
                     r.setField(5, arr[5]); //time
                     if(current == failureTupleIdx){
-                        r.setField(6, -9999); // invalid amount
+                        r.setField(6, -999999999); // invalid amount
                     }else{
                         r.setField(6, arr[6]); //amount
                     }
@@ -213,49 +232,17 @@ public class JoinWithStaticExample {
             }
         }).setParallelism(sourceParallelism);
         dynamicSource.keyBy((KeySelector<Row, Integer>) value -> {
-            return value.getField(0).hashCode();
+            return (Integer) value.getField(0);
         }).process(new MyParser() {
 
             @Override
-            public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
-                super.open(parameters);
-//                untrusted = getRuntimeContext().getMapState(new MapStateDescriptor<String, HashSet<String>>("untrusted",
-//                        Types.STRING,
-//                        TypeInformation.of(new TypeHint<HashSet<String>>(){})));
-//                prev_transaction_state = getRuntimeContext().getMapState(new MapStateDescriptor<Integer, ArrayList<Row>>("prev_transactions",
-//                        Types.INT,
-//                        TypeInformation.of(new TypeHint<ArrayList<Row>>(){})));
-//                Configuration conf = new Configuration();
-//                FileSystem fs = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf);
-//                BufferedReader reader = new BufferedReader(new InputStreamReader(fs.open(new Path("/IBM-transaction-dataset.csv"))));
-//                reader.readLine();
-//                String strLine;
-//                for(int i=0;i<10000 && (strLine = reader.readLine())!= null;++i)   {
-//                    String[] arr = strLine.split(",");
-//                    if(!untrusted.contains(arr[9])){
-//                        untrusted.put(arr[9], new HashSet<>());
-//                    }
-//                    untrusted.get(arr[9]).add(arr[8]);
-//                }
-//                reader.close();
-            }
-
-            @Override
             public void snapshotState(FunctionSnapshotContext context) throws Exception {
-                //prev_transaction_state.clear();
-                //prev_transaction_state.putAll(prev_transaction);
-//                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-//                ObjectOutputStream os = new ObjectOutputStream(bos);
-//                os.writeObject(untrusted);
-//                os.writeObject(previous_transaction);
-//                String serialized_untrusted = bos.toString();
-//                os.close();
-//                //busySleep(10000000000L);
-//                stringListState.add(serialized_untrusted);
+
             }
 
             @Override
             public void initializeState(FunctionInitializationContext context) throws Exception {
+
             }
 
             @Override
@@ -263,29 +250,11 @@ public class JoinWithStaticExample {
                     Row value,
                     Context ctx,
                     Collector<Row> out) throws Exception {
-                //Row enrichment = new Row(2);
-                //HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
-//                Integer user = (Integer) value.getField(0);
-//                if(!prev_transaction.containsKey(user)) {
-//                    prev_transaction.put(user, new ArrayList<Row>());
-//                }
-//                prev_transaction.get(user).add(value);
-//                if(prev_transaction.get(user).size() > 20000){
-//                    prev_transaction.get(user).remove(0);
-//                }
-//                if(merchants != null && merchants.contains((String)value.getFieldAs(8))){
-//                    enrichment.setField(0, true);
-//                }else{
-//                    enrichment.setField(0, false);
-//                }
-                //enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
-                //out.collect(Row.join(value, enrichment));
                 out.collect(Row.project(value, new int[]{0, 6}));
 
         }}).setParallelism(parallelism).process(new ProcessFunction<Row, Boolean>() {
             String myID = "";
             HashMap<Integer, LinkedList<Double>> prev_transaction = new HashMap<>();
-            MapState<Integer, LinkedList<Double>> prev_transaction_state= null;
             boolean modelUpdated = false;
             MultiLayerNetwork net = null;
             int currentInputNum = numInputEvents;
@@ -324,6 +293,7 @@ public class JoinWithStaticExample {
             public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
                 super.open(parameters);
                 buildRNN(numInputEvents);
+                System.out.println(myID+" finished building rnn");
             }
 
             @Override
@@ -332,8 +302,8 @@ public class JoinWithStaticExample {
                     ProcessFunction<Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
                 int user = value.getFieldAs(0);
-                double amount = Double.valueOf(((String)value.getField(0)).substring(1));
-                if(amount < 0){
+                double amount = Double.valueOf(((String)value.getField(1)).substring(1));
+                if(amount == -999999999){
                     System.out.println(myID+" error occur time="+System.currentTimeMillis());
                     throw new RuntimeException("error occurred");
                 }else{
@@ -369,35 +339,8 @@ public class JoinWithStaticExample {
 
         // execute program
           env.execute("Fraud detection");
-//        Thread.sleep(5000);
-//        jobClient.pause();
-//        Thread.sleep(20000);
-//        jobClient.resume();
-//        jobClient.getJobExecutionResult().get();
     }
 
-
-//    static class MyWatermarkStrategy implements WatermarkStrategy<Long> {
-//        @Override
-//        public WatermarkGenerator<Long> createWatermarkGenerator(
-//                WatermarkGeneratorSupplier.Context context) {
-//            return new WatermarkGenerator<Long>(){
-//                long current = 0;
-//                @Override
-//                public void onEvent(
-//                        Long event,
-//                        long eventTimestamp,
-//                        WatermarkOutput output) {
-//                    current++;
-//                }
-//
-//                @Override
-//                public void onPeriodicEmit(WatermarkOutput output) {
-//                    output.emitWatermark(new Watermark(current));
-//                }
-//            };
-//        }
-//    }
 
 
     public static class StreamDataSource extends RichParallelSourceFunction<Tuple2<Long, Long>> {

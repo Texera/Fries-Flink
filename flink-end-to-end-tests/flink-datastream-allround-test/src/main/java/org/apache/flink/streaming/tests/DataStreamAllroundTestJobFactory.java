@@ -247,11 +247,10 @@ public class DataStreamAllroundTestJobFactory {
         //setupCheckpointing(env, pt);
         setupParallelism(env, pt);
         setupRestartStrategy(env, pt);
-        setupStateBackend(env, pt);
+        //setupStateBackend(env, pt);
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(pt);
-        env.getConfig().setUseSnapshotCompression(true);
     }
 
     private static void setupCheckpointing(
