@@ -131,9 +131,6 @@ public final class ChannelStatePersister {
                             ? lastSeenBarrier + 1
                             : lastSeenBarrier;
             if (barrierId >= expectedBarrierId) {
-                if(barrierId > 99999999){
-                    return Optional.empty();
-                }
                 logEvent("found barrier", barrierId);
                 checkpointStatus = CheckpointStatus.BARRIER_RECEIVED;
                 lastSeenBarrier = barrierId;

@@ -48,6 +48,8 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
+import org.apache.flink.util.FlinkUserCodeClassLoader;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -98,20 +100,6 @@ public class JoinWithStaticExample {
         } while (elapsed < nanos);
     }
 
-    private static Iterator list(ClassLoader CL)
-            throws NoSuchFieldException, SecurityException,
-            IllegalArgumentException, IllegalAccessException {
-        Class CL_class = CL.getClass();
-        while (CL_class != java.lang.ClassLoader.class) {
-            CL_class = CL_class.getSuperclass();
-        }
-        java.lang.reflect.Field ClassLoader_classes_field = CL_class
-                .getDeclaredField("classes");
-        ClassLoader_classes_field.setAccessible(true);
-        Vector classes = (Vector) ClassLoader_classes_field.get(CL);
-        return classes.iterator();
-    }
-
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
@@ -128,16 +116,7 @@ public class JoinWithStaticExample {
                 "--clear-old-log","true",
                 "--storage-type","local"
         });
-
-//        Controller.controlInitialDelay_$eq(60000); //60s
-//        Controller.controlNonstop_$eq(false); // do it once
-//        Controller.controlMode_$eq("dcm"); // use dcm
-//        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
-//            @Override
-//            public void accept(Object[] objects) {
-//                System.setProperty("control received","true");
-//            }
-//        });
+        //ClassPathClassLoader globalLoader = new ClassPathClassLoader("/home/12198/libs", null);
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
@@ -253,6 +232,7 @@ public class JoinWithStaticExample {
                 out.collect(Row.project(value, new int[]{0, 6}));
 
         }}).setParallelism(parallelism).process(new ProcessFunction<Row, Boolean>() {
+            //ClassPathClassLoader loader = new ClassPathClassLoader("/home/12198/libs", getRuntimeContext().getUserCodeClassLoader());
             String myID = "";
             HashMap<Integer, LinkedList<Double>> prev_transaction = new HashMap<>();
             boolean modelUpdated = false;
@@ -324,9 +304,10 @@ public class JoinWithStaticExample {
                     if(user_trans.length < currentInputNum){
                         user_trans = ArrayUtils.addAll(new double[currentInputNum - user_trans.length], user_trans);
                     }
-                    INDArray input = Nd4j.create(user_trans, new int[]{1,currentInputNum,1});
-                    double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
-                    out.collect(output[0] < output[1]);
+//                    INDArray input = Nd4j.create(user_trans, new int[]{1,currentInputNum,1});
+//                    double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
+//                    out.collect(output[0] < output[1]);
+                    out.collect(true);
                 }
             }
         }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {

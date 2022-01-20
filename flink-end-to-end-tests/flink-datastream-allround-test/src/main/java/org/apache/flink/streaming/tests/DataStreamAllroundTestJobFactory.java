@@ -220,7 +220,7 @@ public class DataStreamAllroundTestJobFactory {
             ConfigOptions.key("sequence_generator_source.payload_size").defaultValue(20);
 
     private static final ConfigOption<Long> SEQUENCE_GENERATOR_SRC_SLEEP_TIME =
-            ConfigOptions.key("sequence_generator_source.sleep_time").defaultValue(0L);
+            ConfigOptions.key("sequence_generator_source.sleep_time").defaultValue(100L);
 
     private static final ConfigOption<Long> SEQUENCE_GENERATOR_SRC_SLEEP_AFTER_ELEMENTS =
             ConfigOptions.key("sequence_generator_source.sleep_after_elements").defaultValue(0L);

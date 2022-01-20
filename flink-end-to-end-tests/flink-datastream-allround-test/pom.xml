@@ -38,13 +38,13 @@ under the License.
 			<groupId>org.deeplearning4j</groupId>
 			<artifactId>deeplearning4j-core</artifactId>
 			<version>1.0.0-M1.1</version>
-			<scope>provided</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.nd4j</groupId>
 			<artifactId>nd4j-native-platform</artifactId>
 			<version>1.0.0-M1.1</version>
-			<scope>provided</scope>
+			<scope>compile</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
@@ -86,6 +86,14 @@ under the License.
 	<build>
 		<plugins>
 			<plugin>
+				<artifactId>maven-surefire-plugin</artifactId>
+				<configuration>
+					<additionalClasspathElements>
+						<additionalClasspathElement>./src/main/resources</additionalClasspathElement>
+					</additionalClasspathElements>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
 				<executions>
@@ -96,6 +104,7 @@ under the License.
 							<goal>shade</goal>
 						</goals>
 						<configuration>
+							<minimizeJar>true</minimizeJar>
 							<finalName>PackagedProgram</finalName>
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
@@ -105,40 +114,6 @@ under the License.
 						</configuration>
 					</execution>
 				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.avro</groupId>
-				<artifactId>avro-maven-plugin</artifactId>
-				<version>${avro.version}</version>
-				<executions>
-					<execution>
-						<phase>generate-sources</phase>
-						<goals>
-							<goal>schema</goal>
-						</goals>
-						<configuration>
-							<sourceDirectory>${project.basedir}/src/main/resources/avro/</sourceDirectory>
-							<outputDirectory>${project.basedir}/target/generated-sources/</outputDirectory>
-							<fieldVisibility>PRIVATE</fieldVisibility>
-							<includes>
-								<include>**/*.avsc</include>
-							</includes>
-							<!--
-							  This forces Avro to use Java Strings instead of Avro's Utf8.
-							  This is required since the job relies on equals checks on some String fields
-							  to verify that state restore was successful.
-							-->
-							<stringType>String</stringType>
-						</configuration>
-					</execution>
-				</executions>
-			</plugin>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-checkstyle-plugin</artifactId>
-				<configuration>
-					<excludes>**/org/apache/flink/streaming/tests/avro/*</excludes>
-				</configuration>
 			</plugin>
 		</plugins>
 	</build>
