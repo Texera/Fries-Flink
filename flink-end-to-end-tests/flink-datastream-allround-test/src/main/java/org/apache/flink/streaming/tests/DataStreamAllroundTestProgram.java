@@ -18,17 +18,39 @@
 
 package org.apache.flink.streaming.tests;
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.java.typeutils.runtime.kryo.KryoSerializer;
 import org.apache.flink.api.java.utils.ParameterTool;
+
+import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
+
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
 import org.apache.flink.util.Collector;
 
+import org.deeplearning4j.nn.conf.GradientNormalization;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.layers.LSTM;
+import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.Nadam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.function.Consumer;
 
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.createEventSource;
@@ -84,6 +106,32 @@ public class DataStreamAllroundTestProgram {
                 super.setRuntimeContext(t);
                 myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
                 System.out.println("get name of the task = "+myID);
+                MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                        .seed(256)
+                        .weightInit(WeightInit.XAVIER)
+                        .updater(new Nadam())
+                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
+                        .gradientNormalizationThreshold(0.5)
+                        .list()
+                        .layer(new LSTM.Builder().activation(Activation.TANH).nIn(10).nOut(10).build())
+                        .layer(new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                                .activation(Activation.SOFTMAX).nIn(10).nOut(2).build())
+                        .build();
+                MultiLayerNetwork net = new MultiLayerNetwork(conf);
+                net.init();
+
+                List<Integer> user_prev_trans = Arrays.asList(1, 2, 3, 4, 5, 7, 8, 9, 8, 8, 8, 8, 8, 8, 8, 8,8,8,8,9);
+                int len = user_prev_trans.size();
+                int [] user_trans = ArrayUtils.toPrimitive(user_prev_trans.subList(Math.max(0,len-10),len).toArray(
+                        new Integer[0]));
+                if(user_trans.length > 10){
+                    user_trans = Arrays.copyOf(user_trans, 10);
+                }else if(user_trans.length < 10){
+                    user_trans = ArrayUtils.addAll(new int[10 - user_trans.length], user_trans);
+                }
+                INDArray input = Nd4j.create(user_trans, new int[]{1,10,1});
+                double[] output = net.output(input).reshape(2).toDoubleVector();
+                System.out.println(output);
             }
 
             @Override

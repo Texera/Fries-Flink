@@ -20,6 +20,8 @@ package org.apache.flink.streaming.tests;
 
 
 
+import org.apache.commons.lang3.ArrayUtils;
+
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -50,6 +52,18 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.deeplearning4j.nn.conf.GradientNormalization;
+import org.deeplearning4j.nn.conf.MultiLayerConfiguration;
+import org.deeplearning4j.nn.conf.NeuralNetConfiguration;
+import org.deeplearning4j.nn.conf.layers.LSTM;
+import org.deeplearning4j.nn.conf.layers.RnnOutputLayer;
+import org.deeplearning4j.nn.multilayer.MultiLayerNetwork;
+import org.deeplearning4j.nn.weights.WeightInit;
+import org.nd4j.linalg.activations.Activation;
+import org.nd4j.linalg.api.ndarray.INDArray;
+import org.nd4j.linalg.factory.Nd4j;
+import org.nd4j.linalg.learning.config.Nadam;
+import org.nd4j.linalg.lossfunctions.LossFunctions;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -60,6 +74,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
@@ -107,14 +122,15 @@ public class JoinWithStaticExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int ingestionFactor = 1; //1, 2, 5, 10, 15, 20, 25
-        int costFactor = 25;
+        int numInputEvents = 10;
+        int numInputEventsAfterLogicChange = 10;
+        int numLabelClasses = 2;
         int sourceTupleCount = 24386900; // 24386900 max
         int failureTupleIdx =  -18000000;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
-        int sourceDelay = 0; //50000/ingestionFactor;
-        int fraudDetectorProcessingDelay = 200000*costFactor;  //sleep x ns
+        int sourceDelay = 0;//50000/ingestionFactor;
         setupEnvironment(env, pt);
 
         abstract class MySource implements CheckpointedFunction, ParallelSourceFunction<Row> {
@@ -169,15 +185,15 @@ public class JoinWithStaticExample {
                     Row r = new Row(14);
                     r.setField(0, Integer.parseInt(arr[0])); //user
                     r.setField(1, Integer.parseInt(arr[1])); //card
-                    if(current == failureTupleIdx){
-                        r.setField(2, -2022); //year
-                    }else{
-                        r.setField(2, Integer.parseInt(arr[2])); //year
-                    }
+                    r.setField(2, Integer.parseInt(arr[2])); //year
                     r.setField(3, Integer.parseInt(arr[3])); //month
                     r.setField(4, Integer.parseInt(arr[4])); //date
                     r.setField(5, arr[5]); //time
-                    r.setField(6, arr[6]); //amount
+                    if(current == failureTupleIdx){
+                        r.setField(6, -9999); // invalid amount
+                    }else{
+                        r.setField(6, arr[6]); //amount
+                    }
                     r.setField(7, arr[7]); //use chip
                     r.setField(8, arr[8]); //merchant name
                     r.setField(9, arr[9]); //merchant city
@@ -199,9 +215,6 @@ public class JoinWithStaticExample {
         dynamicSource.keyBy((KeySelector<Row, Integer>) value -> {
             return value.getField(0).hashCode();
         }).process(new MyParser() {
-            //MapState<String, HashSet<String>> untrusted = null;
-            HashMap<Integer, ArrayList<Row>> prev_transaction = new HashMap<>();
-            MapState<Integer, ArrayList<Row>> prev_transaction_state= null;
 
             @Override
             public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
@@ -229,8 +242,8 @@ public class JoinWithStaticExample {
 
             @Override
             public void snapshotState(FunctionSnapshotContext context) throws Exception {
-                prev_transaction_state.clear();
-                prev_transaction_state.putAll(prev_transaction);
+                //prev_transaction_state.clear();
+                //prev_transaction_state.putAll(prev_transaction);
 //                ByteArrayOutputStream bos = new ByteArrayOutputStream();
 //                ObjectOutputStream os = new ObjectOutputStream(bos);
 //                os.writeObject(untrusted);
@@ -250,7 +263,7 @@ public class JoinWithStaticExample {
                     Row value,
                     Context ctx,
                     Collector<Row> out) throws Exception {
-                Row enrichment = new Row(2);
+                //Row enrichment = new Row(2);
                 //HashSet<String> merchants = untrusted.get((String)value.getFieldAs(9));
 //                Integer user = (Integer) value.getField(0);
 //                if(!prev_transaction.containsKey(user)) {
@@ -265,12 +278,17 @@ public class JoinWithStaticExample {
 //                }else{
 //                    enrichment.setField(0, false);
 //                }
-                enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
-                out.collect(Row.join(value, enrichment));
-                //out.collect(value);
+                //enrichment.setField(1, value.getField(2).toString()+"/"+value.getField(3)+"/"+value.getField(4)+" "+value.getField(5));
+                //out.collect(Row.join(value, enrichment));
+                out.collect(Row.project(value, new int[]{0, 6}));
 
         }}).setParallelism(parallelism).process(new ProcessFunction<Row, Boolean>() {
             String myID = "";
+            HashMap<Integer, LinkedList<Double>> prev_transaction = new HashMap<>();
+            MapState<Integer, LinkedList<Double>> prev_transaction_state= null;
+            boolean modelUpdated = false;
+            MultiLayerNetwork net = null;
+            int currentInputNum = numInputEvents;
 
             @Override
             public void setRuntimeContext(RuntimeContext t) {
@@ -280,24 +298,66 @@ public class JoinWithStaticExample {
                 System.out.println(myID+" start time="+System.currentTimeMillis());
             }
 
+            private void buildRNN(int numInputEvts){
+                currentInputNum = numInputEvts;
+                MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                        .seed(256)
+                        .weightInit(WeightInit.XAVIER)
+                        .updater(new Nadam())
+                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
+                        .gradientNormalizationThreshold(0.5)
+                        .list()
+                        .layer(new LSTM.Builder().activation(Activation.TANH).nIn(numInputEvts).nOut(64).build())
+                        .layer(new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
+                                .activation(Activation.SOFTMAX).nIn(64).nOut(numLabelClasses).build())
+                        .build();
+                if(net !=null){
+                    net.clear();
+                    net.close();
+                }
+                net = new MultiLayerNetwork(conf);
+                net.init();
+            }
+
+
+            @Override
+            public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
+                super.open(parameters);
+                buildRNN(numInputEvents);
+            }
+
             @Override
             public void processElement(
                     Row value,
                     ProcessFunction<Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
-
-                if((int)value.getField(2) < 0){
+                int user = value.getFieldAs(0);
+                double amount = Double.valueOf(((String)value.getField(0)).substring(1));
+                if(amount < 0){
                     System.out.println(myID+" error occur time="+System.currentTimeMillis());
-                    //throw new RuntimeException("error occurred");
-                }
-                // busySleep(fraudDetectorProcessingDelay);
-
-                if(System.getProperty(myID)==null){
-                    busySleep(fraudDetectorProcessingDelay);
+                    throw new RuntimeException("error occurred");
                 }else{
-                    busySleep(40000);
+                    if(!prev_transaction.containsKey(user)){
+                        prev_transaction.put(user, new LinkedList<>());
+                    }
+                    LinkedList<Double> user_prev_transactions = prev_transaction.get(user);
+                    user_prev_transactions.add(amount);
+                    while(user_prev_transactions.size() > currentInputNum){
+                        user_prev_transactions.remove(0);
+                    }
+                    if(System.getProperty(myID)!=null && !modelUpdated){
+                        modelUpdated = true;
+                        buildRNN(numInputEventsAfterLogicChange);
+                    }
+                    int len = user_prev_transactions.size();
+                    double [] user_trans = ArrayUtils.toPrimitive(user_prev_transactions.subList(Math.max(0,len-currentInputNum),len).toArray(new Double[0]));
+                    if(user_trans.length < currentInputNum){
+                        user_trans = ArrayUtils.addAll(new double[currentInputNum - user_trans.length], user_trans);
+                    }
+                    INDArray input = Nd4j.create(user_trans, new int[]{1,currentInputNum,1});
+                    double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
+                    out.collect(output[0] < output[1]);
                 }
-                out.collect(true);
             }
         }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {
             ArrayList<Boolean> result = new ArrayList<>();
