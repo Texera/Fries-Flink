@@ -125,14 +125,15 @@ object Controller {
     val metricsCollection = new TimerTask {
       override def run(): Unit = {
         if(metricFetcher == null) return
+        metricFetcher.update()
         graph.getAllVertices.foreach{
           case (k,v) =>{
             val taskStore = metricFetcher.getMetricStore.getTaskMetricStore(graph.getJobID.toString, k.toString)
             if(taskStore != null){
               printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_IN_RATE)
               printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_OUT_RATE)
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_BYTES_IN_RATE)
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_BYTES_OUT_RATE)
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_IN)
+              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_OUT)
             }
           }
         }

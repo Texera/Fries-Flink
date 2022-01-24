@@ -139,13 +139,13 @@ public class DataStreamAllroundTestProgram {
                     Event value,
                     ProcessFunction<Event, Object>.Context ctx,
                     Collector<Object> out) throws Exception {
-                System.out.println(value);
+                //System.out.println(value);
                 //if(System.getProperty(myID) == null)
-                    Thread.sleep(1000);
+                //Thread.sleep(10);
                 out.collect("123");
             }
 
-        }).setParallelism(40).addSink(new SinkFunction<Object>() {
+        }).setParallelism(4).addSink(new SinkFunction<Object>() {
 
         }).setParallelism(1);
 
