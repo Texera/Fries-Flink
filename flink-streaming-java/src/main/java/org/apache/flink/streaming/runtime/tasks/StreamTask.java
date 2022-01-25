@@ -521,6 +521,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 barrier.setMessage(controlMessage);
                 operatorChain.broadcastEvent(barrier, false);
             }
+            ((CompletableFuture<?>)x[1]).complete(null);
         });
 
 //        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
@@ -564,8 +565,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                     operatorChain.broadcastEvent(barrier, false);
                 }
                 f.complete(null);
-            },"control",controlMessage);
-            //f.get();
+            },"control",controlMessage, f);
+            if(!mailboxProcessor.isMailboxThread()){
+                f.get();
+            }
         }catch (Exception e){
             e.printStackTrace();
         }
