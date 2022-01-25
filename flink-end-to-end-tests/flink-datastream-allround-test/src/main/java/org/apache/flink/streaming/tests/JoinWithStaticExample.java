@@ -115,7 +115,7 @@ public class JoinWithStaticExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int numInputEvents = 10;
-        int modelScaleFactor = 1;
+        int modelScaleFactor = 5;
         int numLabelClasses = 2;
         int sourceTupleCount = 100000; // 24386900 max
         int failureTupleIdx =  -18000000;
@@ -123,8 +123,8 @@ public class JoinWithStaticExample {
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
-        int sourceTPS = 1000; //3K baseline
-        int changeTPSDelay = 100000;//100 secs
+        int sourceTPS = 3000; //3K baseline -> 6K actual
+        int changeTPSDelay = -1;//100 secs
         int changedTPS = 10000;
         int sourceTimeLimit = 500000;
         setupEnvironment(env, pt);
@@ -179,7 +179,6 @@ public class JoinWithStaticExample {
                 long prevTime = startTime;
                 long currentTPS = sourceTPS;
                 while ((strLine2 = reader.readLine()) != null)   {
-
                     long currentTime = System.currentTimeMillis();
                     if (currentTime >= startTime+sourceTimeLimit)break;
                     if(changeTPSDelay!= -1 && currentTime >=startTime+changeTPSDelay && currentTPS != changedTPS){
@@ -311,6 +310,7 @@ public class JoinWithStaticExample {
                     Row value,
                     KeyedProcessFunction<Integer, Row, Boolean>.Context ctx,
                     Collector<Boolean> out) throws Exception {
+                long begin = System.currentTimeMillis();
                 int user = value.getFieldAs(0);
                 double amount = Double.valueOf(((String) value.getField(1)).substring(1));
                 if (amount == -999999999) {
@@ -356,6 +356,7 @@ public class JoinWithStaticExample {
                         double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
                         out.collect(output[0] < output[1]);
                     }
+                    System.out.println("processing = "+(System.currentTimeMillis()-begin+" ms"));
                 }
             }
         }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {

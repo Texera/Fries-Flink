@@ -32,6 +32,7 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
 import org.apache.flink.streaming.api.functions.sink.SinkFunction;
+import org.apache.flink.streaming.api.functions.source.SourceFunction;
 import org.apache.flink.util.Collector;
 
 import org.deeplearning4j.nn.conf.GradientNormalization;
@@ -93,11 +94,24 @@ public class DataStreamAllroundTestProgram {
 //        });
 
         // add a keyed stateful map operator, which uses Kryo for state serialization
-        DataStream<Event> eventStream =
-                env.addSource(createEventSource(pt))
-                        .name(EVENT_SOURCE.getName())
+        DataStream<String> eventStream =
+                env.addSource(new SourceFunction<String>() {
+                            @Override
+                            public void run(SourceContext<String> ctx) throws Exception {
+                                while(true){
+                                    //Thread.sleep(100);
+                                    ctx.collect("123");
+                                }
+                            }
+
+                            @Override
+                            public void cancel() {
+
+                            }
+                        })
+                        .name("source")
                         .uid(EVENT_SOURCE.getUid()).setParallelism(1);
-        eventStream.process(new ProcessFunction<Event, Object>() {
+        eventStream.shuffle().process(new ProcessFunction<String, Object>() {
 
             String myID = "";
 
@@ -106,46 +120,56 @@ public class DataStreamAllroundTestProgram {
                 super.setRuntimeContext(t);
                 myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
                 System.out.println("get name of the task = "+myID);
-//                MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-//                        .seed(256)
-//                        .weightInit(WeightInit.XAVIER)
-//                        .updater(new Nadam())
-//                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
-//                        .gradientNormalizationThreshold(0.5)
-//                        .list()
-//                        .layer(new LSTM.Builder().activation(Activation.TANH).nIn(10).nOut(10).build())
-//                        .layer(new RnnOutputLayer.Builder(LossFunctions.LossFunction.MCXENT)
-//                                .activation(Activation.SOFTMAX).nIn(10).nOut(2).build())
-//                        .build();
-//                MultiLayerNetwork net = new MultiLayerNetwork(conf);
-//                net.init();
-//
-//                List<Integer> user_prev_trans = Arrays.asList(1, 2, 3, 4, 5, 7, 8, 9, 8, 8, 8, 8, 8, 8, 8, 8,8,8,8,9);
-//                int len = user_prev_trans.size();
-//                int [] user_trans = ArrayUtils.toPrimitive(user_prev_trans.subList(Math.max(0,len-10),len).toArray(
-//                        new Integer[0]));
-//                if(user_trans.length > 10){
-//                    user_trans = Arrays.copyOf(user_trans, 10);
-//                }else if(user_trans.length < 10){
-//                    user_trans = ArrayUtils.addAll(new int[10 - user_trans.length], user_trans);
-//                }
-//                INDArray input = Nd4j.create(user_trans, new int[]{1,10,1});
-//                double[] output = net.output(input).reshape(2).toDoubleVector();
-//                System.out.println(output);
             }
 
             @Override
             public void processElement(
-                    Event value,
-                    ProcessFunction<Event, Object>.Context ctx,
+                    String value,
+                    ProcessFunction<String, Object>.Context ctx,
                     Collector<Object> out) throws Exception {
-                //System.out.println(value);
-                //if(System.getProperty(myID) == null)
-                //Thread.sleep(10);
+                //Thread.sleep(100);
                 out.collect("123");
             }
 
-        }).setParallelism(4).addSink(new SinkFunction<Object>() {
+        }).name("process1").setParallelism(1).shuffle().process(new ProcessFunction<Object, Object>() {
+            String myID = "";
+            int stage = 1;
+            long discarded = 0;
+            @Override
+            public void setRuntimeContext(RuntimeContext t) {
+                super.setRuntimeContext(t);
+                myID = t.getTaskName()+"-"+t.getIndexOfThisSubtask();
+                System.out.println("get name of the task = "+myID);
+            }
+
+            @Override
+            public void processElement(
+                    Object value,
+                    ProcessFunction<Object, Object>.Context ctx,
+                    Collector<Object> out) throws Exception {
+                if(System.getProperty(myID+"-epoch")!=null && stage < 3){
+                    System.out.println("received epoch at "+System.currentTimeMillis()+" discarded = "+discarded);
+                    stage = 3;
+                }
+                if(System.getProperty(myID+"-dcm")!=null && stage < 2){
+                    System.out.println("received dcm at "+System.currentTimeMillis());
+                    stage = 2;
+                }
+                //Thread.sleep(100);
+                switch (stage){
+                    case 1:
+                        //System.out.println("processing");
+                        break;
+                    case 2:
+                        discarded++;
+                        //System.out.println("discarding");
+                        break;
+                    case 3:
+                        //System.out.println("updated!!!!!!!!");
+                        break;
+                }
+            }
+        }).name("process2").setParallelism(1).shuffle().addSink(new SinkFunction<Object>() {
 
         }).setParallelism(1);
 

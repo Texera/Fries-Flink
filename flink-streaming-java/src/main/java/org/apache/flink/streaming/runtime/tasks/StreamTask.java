@@ -554,15 +554,22 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         String name = info.getTaskName();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
+        try{
+            CompletableFuture<Void> f = new CompletableFuture<>();
+            mainMailboxExecutor.execute(() -> {
+                controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
+                if(controlMessage.EpochMode()){
+                    CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                    barrier.setMessage(controlMessage);
+                    operatorChain.broadcastEvent(barrier, false);
+                }
+                f.complete(null);
+            },"control",controlMessage);
+            //f.get();
+        }catch (Exception e){
+            e.printStackTrace();
+        }
 
-        mainMailboxExecutor.execute(() -> {
-            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
-            if(controlMessage.EpochMode()){
-                CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                barrier.setMessage(controlMessage);
-                operatorChain.broadcastEvent(barrier, false);
-            }
-        },"control",controlMessage);
     }
 
 
