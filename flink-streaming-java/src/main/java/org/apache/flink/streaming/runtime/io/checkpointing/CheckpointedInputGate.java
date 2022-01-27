@@ -122,7 +122,9 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
             if (!bufferOrEventOpt.isPresent()) {
                 break;
             }
+            System.out.println("received "+bufferOrEventOpt.get());
             final BufferOrEvent bufferOrEvent = bufferOrEventOpt.get();
+            handleEvent(bufferOrEvent);
             checkState(bufferOrEvent.hasPriority(), "Should only poll priority events");
             hasPriorityEvent = bufferOrEvent.morePriorityEvents();
         }

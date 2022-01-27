@@ -244,10 +244,10 @@ public class DataStreamAllroundTestJobFactory {
 
     public static void setupEnvironment(StreamExecutionEnvironment env, ParameterTool pt)
             throws Exception {
-        //setupCheckpointing(env, pt);
+        setupCheckpointing(env, pt);
         setupParallelism(env, pt);
         setupRestartStrategy(env, pt);
-        //setupStateBackend(env, pt);
+        setupStateBackend(env, pt);
 
         // make parameters available in the web interface
         env.getConfig().setGlobalJobParameters(pt);
@@ -269,7 +269,8 @@ public class DataStreamAllroundTestJobFactory {
 
         final String checkpointDir = pt.getRequired(STATE_BACKEND_CHECKPOINT_DIR.key());
         env.getCheckpointConfig().setCheckpointStorage(checkpointDir);
-        env.getCheckpointConfig().setMaxConcurrentCheckpoints(10000);
+        env.getCheckpointConfig().setMaxConcurrentCheckpoints(1);
+        env.getCheckpointConfig().enableUnalignedCheckpoints();
         env.getCheckpointConfig().enableExternalizedCheckpoints(CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
         boolean enableExternalizedCheckpoints =
                 pt.getBoolean(

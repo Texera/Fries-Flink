@@ -79,7 +79,19 @@ public class DataStreamAllroundTestProgram {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--metrics.fetcher.update-interval", "1000"});
+                "--state_backend.checkpoint_directory", "file:///chkpts",
+                "--environment.checkpoint_interval","10000",
+                "--test.simulate_failure", "false",
+                "--test.simulate_failure.max_failures", String.valueOf(1),
+                "--test.simulate_failure.num_records", "100",
+                "--environment.restart_strategy","no_restart",
+                "--print-level", "1",
+                // "--state.backend.rocksdb.memory.managed","false",
+//                "--hdfs-log-storage","hdfs://10.128.0.5:8020/",
+                "--enable-logging","false",
+                "--clear-old-log","true",
+                "--storage-type","local"
+        });
 
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -99,7 +111,7 @@ public class DataStreamAllroundTestProgram {
                             @Override
                             public void run(SourceContext<String> ctx) throws Exception {
                                 while(true){
-                                    //Thread.sleep(100);
+                                    Thread.sleep(1000);
                                     ctx.collect("123");
                                 }
                             }
@@ -155,7 +167,7 @@ public class DataStreamAllroundTestProgram {
                     System.out.println("received dcm at "+System.currentTimeMillis());
                     stage = 2;
                 }
-                //Thread.sleep(100);
+                Thread.sleep(3);
                 switch (stage){
                     case 1:
                         //System.out.println("processing");
