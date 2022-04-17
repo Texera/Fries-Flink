@@ -88,6 +88,7 @@ object Controller {
             }
             res.toArray
         }
+        println(s"triggering control message, targets = ${targetVertices.map(x => x.getName).mkString(",")}")
         val currentIteration = iteration
         val innerJobID = jobID
         iteration +=1
@@ -124,10 +125,16 @@ object Controller {
             }, controlMode == "epoch")
             while (sources.nonEmpty) {
               val cand = sources.dequeue()
+              println(s"now checking ${cand.getName}")
               val res = cand.getTaskVertices.map(e => e.getExecutionState.isTerminal).forall(x => !x)
               if (!res) {
-                edgeMap(cand.getName).foreach(x => sources.enqueue(nameToVertex(x)))
+                println(s"${cand.getName} is fully or partially completed")
+                edgeMap(cand.getName).foreach(x => {
+                  println(s"enqueue ${x}")
+                  sources.enqueue(nameToVertex(x))
+                })
               }else{
+                println(s"sending control message to ${cand.getName}")
                 cand.getTaskVertices.foreach(x => x.sendControlMessage(message))
               }
             }
