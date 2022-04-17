@@ -39,16 +39,16 @@ object Controller {
   }else{
     System.getProperty("controlMode")
   }
-  var controlDest:String = if(System.getProperty("controlDest") == null){
-    "process1"
+  var controlDest:String = if(System.getProperty("controlDests") == null){
+    ""
   }else{
-    System.getProperty("controlDest")
+    System.getProperty("controlDests")
   }
 
-  var controlDest2:String = if(System.getProperty("controlDest2") == null){
-    "process2"
+  var controlSources:String = if(System.getProperty("controlSources") == null){
+    ""
   }else{
-    System.getProperty("controlDest2")
+    System.getProperty("controlSources")
   }
 
   var metricCollectionInterval =  if(System.getProperty("metricCollection") == null){
@@ -70,32 +70,24 @@ object Controller {
       var iteration = 0;
       override def run(): Unit = {
         var iter = graph.getVerticesTopologically.iterator()
-        val targetVertex = controlDest match{
-          case "final" =>
+        val targetVertices = controlDest match{
+          case "" =>
             var last = iter.next()
             while(iter.hasNext){
               last = iter.next()
             }
-            last
+            Array(last)
           case other =>
-            var current = iter.next()
-            while(!current.getJobVertex.getName.contains(other) && iter.hasNext){
-              current = iter.next()
+            val names = other.split(",")
+            val res = mutable.ArrayBuffer[ExecutionJobVertex]()
+            while(iter.hasNext){
+              val v = iter.next()
+              if(names.exists(v.getName.contains)){
+                res.append(v)
+              }
             }
-            current
+            res.toArray
         }
-        println(s"${jobID} target vertex = ${targetVertex.getName}")
-        var targetVertex2:ExecutionJobVertex = null
-        if(controlDest2 != ""){
-          val iter2 = graph.getVerticesTopologically.iterator()
-          targetVertex2 = iter2.next()
-          while(!targetVertex2.getJobVertex.getName.contains(controlDest2) && iter.hasNext){
-            targetVertex2 = iter.next()
-          }
-          println(s"${jobID} target vertex2 = ${targetVertex2.getName}")
-        }
-        val targetExecVertex = targetVertex.getTaskVertices.head
-        val vertexId = targetExecVertex.getJobvertexId
         val currentIteration = iteration
         val innerJobID = jobID
         iteration +=1
@@ -118,12 +110,13 @@ object Controller {
             edgeMap(upstreamName).add(v.getName)
           }
         }
+        val vIds = targetVertices.map(_.getJobVertexId)
         controlMode match {
           case "epoch" =>
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if (t(0).asInstanceOf[JobVertexID] == vertexId) {
-                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received control message!")
+                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
+                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
                   System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
@@ -131,59 +124,43 @@ object Controller {
             }, controlMode == "epoch")
             while (sources.nonEmpty) {
               val cand = sources.dequeue()
-              val res = cand.getTaskVertices.map(e => e.sendControlMessage(message).join()).contains(true)
+              val res = cand.getTaskVertices.map(e => e.getExecutionState.isTerminal).forall(x => !x)
               if (!res) {
                 edgeMap(cand.getName).foreach(x => sources.enqueue(nameToVertex(x)))
+              }else{
+                cand.getTaskVertices.foreach(x => x.sendControlMessage(message))
               }
             }
           case "dcm" =>
+            val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vertexId){
+                if(t(0).asInstanceOf[JobVertexID] == vId){
                   println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received dcm control message!")
                   System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, "true")
                 }
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
-            targetVertex.getTaskVertices.foreach(x => x.sendControlMessage(message))
+            targetVertices.head.getTaskVertices.filter(x => !x.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
           case "hybrid" =>
-            val vertexId2 = targetVertex2.getJobVertexId
-            val epochMessage = ControlMessage(new Consumer[Array[Object]] with Serializable {
+            val startVs = controlSources.split(",")
+            val graphIter = graph.getVerticesTopologically.iterator()
+            val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vertexId || t(0).asInstanceOf[JobVertexID] == vertexId2){
-                  println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received hybrid epoch control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString+"-epoch", "true")
+                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
+                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received hybrid control message!")
+                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
+                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
             }, true)
-            val dcmMessage = ControlMessage(new Consumer[Array[Object]] with Serializable {
-              override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vertexId2){
-                  println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received hybrid dcm control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString+"-dcm", "true")
-                }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
+            while(graphIter.hasNext){
+              val v = iter.next()
+              if(startVs.exists(v.getName.contains)){
+                v.getTaskVertices.foreach(x => x.sendControlMessage(message))
               }
-            }, false)
-            CompletableFuture.allOf(targetVertex.getTaskVertices.map(x => x.sendControlMessage(epochMessage)):_*).thenRun(new Runnable {
-              override def run(): Unit = {
-                targetVertex2.getTaskVertices.foreach(y => y.sendControlMessage(dcmMessage))
-              }
-            })
-          case "subdag" =>
-            val vertexId2 = targetVertex2.getJobVertexId
-            val epochMessage = ControlMessage(new Consumer[Array[Object]] with Serializable {
-              override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vertexId2){
-                  println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received subdag control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, "true")
-                }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
-              }
-            }, true)
-            targetVertex.getTaskVertices.map(x => x.sendControlMessage(epochMessage))
+            }
           case other =>
         }
         println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
