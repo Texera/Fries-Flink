@@ -87,7 +87,6 @@ public class TpcdsTestProgram {
     private static final String QUERY_PREFIX = "query";
     private static final String QUERY_SUFFIX = ".sql";
     private static final String DATA_SUFFIX = ".dat";
-    private static final String RESULT_SUFFIX = ".ans";
     private static final String COL_DELIMITER = "|";
     private static final String FILE_SEPARATOR = "/";
 
@@ -95,35 +94,24 @@ public class TpcdsTestProgram {
         ParameterTool params = ParameterTool.fromArgs(args);
         String sourceTablePath = params.getRequired("sourceTablePath");
         String queryPath = params.getRequired("queryPath");
-        String sinkTablePath = params.getRequired("sinkTablePath");
         Boolean useTableStats = params.getBoolean("useTableStats");
+        String queryId = params.getRequired("query");
         TableEnvironment tableEnvironment = prepareTableEnv(sourceTablePath, useTableStats);
 
         // execute TPC-DS queries
-        for (String queryId : TPCDS_QUERIES) {
-            System.out.println("[INFO]Run TPC-DS query " + queryId + " ...");
-            String queryName = QUERY_PREFIX + queryId + QUERY_SUFFIX;
-            String queryFilePath = queryPath + FILE_SEPARATOR + queryName;
-            String queryString = loadFile2String(queryFilePath);
-            Table resultTable = tableEnvironment.sqlQuery(queryString);
+        System.out.println("[INFO]Run TPC-DS query " + queryId + " ...");
+        String queryName = QUERY_PREFIX + queryId + QUERY_SUFFIX;
+        String queryFilePath = queryPath + FILE_SEPARATOR + queryName;
+        String queryString = loadFile2String(queryFilePath);
+        Table resultTable = tableEnvironment.sqlQuery(queryString);
 
-            // register sink table
-            String sinkTableName = QUERY_PREFIX + queryId + "_sinkTable";
-            ((TableEnvironmentInternal) tableEnvironment)
-                    .registerTableSinkInternal(
-                            sinkTableName,
-                            new CsvTableSink(
-                                    sinkTablePath + FILE_SEPARATOR + queryId + RESULT_SUFFIX,
-                                    COL_DELIMITER,
-                                    1,
-                                    FileSystem.WriteMode.OVERWRITE,
-                                    resultTable.getSchema().getFieldNames(),
-                                    resultTable.getSchema().getFieldDataTypes()));
-            TableResult tableResult = resultTable.executeInsert(sinkTableName);
-            // wait job finish
-            tableResult.getJobClient().get().getJobExecutionResult().get();
-            System.out.println("[INFO]Run TPC-DS query " + queryId + " success.");
-        }
+//            // register sink table
+//            String sinkTableName = QUERY_PREFIX + queryId + "_sinkTable";
+//            ((TableEnvironmentInternal) tableEnvironment).registerTableSinkInternal();
+        TableResult tableResult = resultTable.execute();
+        // wait job finish
+        tableResult.getJobClient().get().getJobExecutionResult().get();
+        System.out.println("[INFO]Run TPC-DS query " + queryId + " success.");
     }
 
     /**
@@ -135,13 +123,13 @@ public class TpcdsTestProgram {
     private static TableEnvironment prepareTableEnv(String sourceTablePath, Boolean useTableStats) {
         // init Table Env
         EnvironmentSettings environmentSettings =
-                EnvironmentSettings.newInstance().useBlinkPlanner().inBatchMode().build();
+                EnvironmentSettings.newInstance().useBlinkPlanner().inStreamingMode().build();
         TableEnvironment tEnv = TableEnvironment.create(environmentSettings);
 
         // config Optimizer parameters
         tEnv.getConfig()
                 .getConfiguration()
-                .setInteger(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM, 4);
+                .setInteger(ExecutionConfigOptions.TABLE_EXEC_RESOURCE_DEFAULT_PARALLELISM, 40);
         tEnv.getConfig()
                 .getConfiguration()
                 .setString(

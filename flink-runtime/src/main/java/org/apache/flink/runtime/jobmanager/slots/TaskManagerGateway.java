@@ -64,7 +64,7 @@ public interface TaskManagerGateway extends TaskExecutorOperatorEventGateway {
      * @param timeout of the submit operation
      * @return Future acknowledge if the task is successfully canceled
      */
-    CompletableFuture<Acknowledge> sendControlToTask(ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage);
+    CompletableFuture<Boolean> sendControlToTask(ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage);
 
     CompletableFuture<Acknowledge> cancelTask(ExecutionAttemptID executionAttemptID, Time timeout);
 

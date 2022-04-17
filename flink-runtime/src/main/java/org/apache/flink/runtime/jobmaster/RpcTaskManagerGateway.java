@@ -63,7 +63,7 @@ public class RpcTaskManagerGateway implements TaskManagerGateway {
     }
 
     @Override
-    public CompletableFuture<Acknowledge> sendControlToTask(
+    public CompletableFuture<Boolean> sendControlToTask(
             ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage) {
         return taskExecutorGateway.sendControlToTask(executionAttemptID, timeout, controlMessage);
     }

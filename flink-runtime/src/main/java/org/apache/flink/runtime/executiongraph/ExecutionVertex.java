@@ -456,7 +456,7 @@ public class ExecutionVertex
         return exec.getReleaseFuture();
     }
 
-    public CompletableFuture<?> sendControlMessage(ControlMessage message){
+    public CompletableFuture<Boolean> sendControlMessage(ControlMessage message){
         final Execution exec = currentExecution;
         return exec.sendControlRPCCall(message);
     }

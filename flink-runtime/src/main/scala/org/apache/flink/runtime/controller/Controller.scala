@@ -10,7 +10,9 @@ import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore.TaskMetr
 import java.util.TimerTask
 import java.util.concurrent.CompletableFuture
 import java.util.function.{BiConsumer, Consumer}
+import scala.::
 import scala.collection.JavaConversions.mapAsScalaMap
+import scala.collection.mutable
 
 object Controller {
   private var metricFetcher: MetricFetcher = null
@@ -67,7 +69,7 @@ object Controller {
     val task: TimerTask = new java.util.TimerTask {
       var iteration = 0;
       override def run(): Unit = {
-        val iter = graph.getVerticesTopologically.iterator()
+        var iter = graph.getVerticesTopologically.iterator()
         val targetVertex = controlDest match{
           case "final" =>
             var last = iter.next()
@@ -94,26 +96,44 @@ object Controller {
         }
         val targetExecVertex = targetVertex.getTaskVertices.head
         val vertexId = targetExecVertex.getJobvertexId
-        val idx = targetExecVertex.getID.getSubtaskIndex
         val currentIteration = iteration
         val innerJobID = jobID
         iteration +=1
-        controlMode match{
+        iter = graph.getVerticesTopologically.iterator()
+        val sources = new mutable.Queue[ExecutionJobVertex]
+        val edgeMap = new mutable.HashMap[String,mutable.HashSet[String]]
+        val nameToVertex = new mutable.HashMap[String,ExecutionJobVertex]
+        while(iter.hasNext){
+          val v = iter.next()
+          nameToVertex(v.getName) = v
+          if(v.getInputs.isEmpty){
+            sources.enqueue(v)
+          }
+          val inputIter = v.getInputs.iterator()
+          while(inputIter.hasNext){
+            val upstreamName = inputIter.next().getProducer.getName
+            if(!edgeMap.contains(upstreamName)){
+              edgeMap(upstreamName) = new mutable.HashSet[String]
+            }
+            edgeMap(upstreamName).add(v.getName)
+          }
+        }
+        controlMode match {
           case "epoch" =>
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vertexId){
-                  println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, "true")
+                if (t(0).asInstanceOf[JobVertexID] == vertexId) {
+                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received control message!")
+                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
+                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
-            val iter = graph.getVerticesTopologically.iterator()
-            while(iter.hasNext){
-              val v = iter.next()
-              if(v.getInputs.isEmpty){
-                v.getTaskVertices.foreach(e => e.sendControlMessage(message))
+            while (sources.nonEmpty) {
+              val cand = sources.dequeue()
+              val res = cand.getTaskVertices.map(e => e.sendControlMessage(message).join()).contains(true)
+              if (!res) {
+                edgeMap(cand.getName).foreach(x => sources.enqueue(nameToVertex(x)))
               }
             }
           case "dcm" =>

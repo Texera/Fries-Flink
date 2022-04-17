@@ -550,11 +550,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     @Override
-    public void sendControl(ControlMessage controlMessage) {
+    public boolean sendControl(ControlMessage controlMessage) {
         TaskInfo info = getEnvironment().getTaskInfo();
         String name = info.getTaskName();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
+        if(!isRunning){return false;}
         try{
             CompletableFuture<Void> f = new CompletableFuture<>();
             mainMailboxExecutor.execute(() -> {
@@ -572,7 +573,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         }catch (Exception e){
             e.printStackTrace();
         }
-
+        return true;
     }
 
 

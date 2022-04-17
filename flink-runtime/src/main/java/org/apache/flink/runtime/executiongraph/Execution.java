@@ -1006,14 +1006,14 @@ public class Execution
         }
     }
 
-    public CompletableFuture<?> sendControlRPCCall(ControlMessage controlMessage){
+    public CompletableFuture<Boolean> sendControlRPCCall(ControlMessage controlMessage){
         final LogicalSlot slot = assignedResource;
 
         if (slot != null) {
             final TaskManagerGateway taskManagerGateway = slot.getTaskManagerGateway();
             return taskManagerGateway.sendControlToTask(attemptId, rpcTimeout, controlMessage);
         }
-        return FutureUtils.completedVoidFuture();
+        return CompletableFuture.completedFuture(false);
     }
 
     public CompletableFuture<?> sendPauseRPCCall(){

@@ -115,8 +115,9 @@ public abstract class AbstractInvokable {
         return CompletableFuture.completedFuture(null);
     }
 
-    public void sendControl(ControlMessage controlMessage) {
+    public boolean sendControl(ControlMessage controlMessage) {
         //do nothing
+        return false;
     }
 
     public void pause() {
