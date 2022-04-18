@@ -109,6 +109,8 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
         try {
             userFunction.run(ctx);
 
+            operatorChain.flushOutputs();
+
             int count = 0;
             while(count < 360){
                 count++;
