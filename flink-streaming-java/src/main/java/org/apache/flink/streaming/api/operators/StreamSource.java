@@ -20,6 +20,9 @@ package org.apache.flink.streaming.api.operators;
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.configuration.MetricOptions;
+import org.apache.flink.core.memory.DataInputView;
+import org.apache.flink.core.memory.DataOutputView;
+import org.apache.flink.runtime.event.TaskEvent;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -31,6 +34,7 @@ import org.apache.flink.streaming.runtime.tasks.OperatorChain;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 
+import java.io.IOException;
 import java.util.concurrent.ScheduledFuture;
 
 /**
@@ -112,9 +116,15 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
             operatorChain.flushOutputs();
 
             int count = 0;
-            while(count < 360){
+            while(count < 18000){
                 count++;
-                Thread.sleep(500);
+                operatorChain.broadcastEvent(new TaskEvent() {
+                    @Override
+                    public void write(DataOutputView out) throws IOException {}
+                    @Override
+                    public void read(DataInputView in) throws IOException {}
+                });
+                Thread.sleep(10);
             }
 
             // if we get here, then the user function either exited after being done (finite source)
