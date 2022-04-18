@@ -23,6 +23,7 @@ import org.apache.flink.configuration.MetricOptions;
 import org.apache.flink.core.memory.DataInputView;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.runtime.event.TaskEvent;
+import org.apache.flink.runtime.iterative.event.WorkerDoneEvent;
 import org.apache.flink.runtime.jobgraph.OperatorID;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -118,12 +119,7 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
             int count = 0;
             while(count < 18000){
                 count++;
-                operatorChain.broadcastEvent(new TaskEvent() {
-                    @Override
-                    public void write(DataOutputView out) throws IOException {}
-                    @Override
-                    public void read(DataInputView in) throws IOException {}
-                });
+                operatorChain.broadcastEvent(new WorkerDoneEvent());
                 Thread.sleep(10);
             }
 
