@@ -109,6 +109,12 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
         try {
             userFunction.run(ctx);
 
+            int count = 0;
+            while(count < 360){
+                count++;
+                Thread.sleep(500);
+            }
+
             // if we get here, then the user function either exited after being done (finite source)
             // or the function was canceled or stopped. For the finite source case, we should emit
             // a final watermark that indicates that we reached the end of event-time, and end

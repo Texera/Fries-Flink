@@ -123,6 +123,7 @@ object Controller {
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
+            val sentSet = mutable.HashSet[String]()
             while (sources.nonEmpty) {
               val cand = sources.dequeue()
               println(s"now checking ${cand.getName}")
@@ -134,8 +135,11 @@ object Controller {
                   sources.enqueue(nameToVertex(x))
                 })
               }else{
-                println(s"sending control message to ${cand.getName}")
-                cand.getTaskVertices.foreach(x => x.sendControlMessage(message))
+                if(!sentSet.contains(cand.getName)){
+                  println(s"sending control message to ${cand.getName}")
+                  cand.getTaskVertices.foreach(x => x.sendControlMessage(message))
+                  sentSet.add(cand.getName)
+                }
               }
             }
           case "dcm" =>
