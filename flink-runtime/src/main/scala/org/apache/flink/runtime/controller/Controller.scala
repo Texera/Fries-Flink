@@ -122,7 +122,7 @@ object Controller {
             val startVs = controlSources.split(",").map(_.toLowerCase)
             val graphIter = graph.getVerticesTopologically.iterator()
             while(graphIter.hasNext){
-              val v = iter.next()
+              val v = graphIter.next()
               if(startVs.exists(v.getName.toLowerCase.contains)){
                 v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
               }
@@ -153,7 +153,7 @@ object Controller {
               }
             }, true)
             while(graphIter.hasNext){
-              val v = iter.next()
+              val v = graphIter.next()
               if(startVs.exists(v.getName.toLowerCase.contains)){
                 v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
               }
