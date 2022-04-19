@@ -85,6 +85,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
     private CompletableFuture<Void> allBarriersReceivedFuture = new CompletableFuture<>();
 
+    private CheckpointBarrier pendingBarrier = null;
     private BarrierHandlerState currentState;
     private long firstBarrierArrivalTime;
     private Cancellable currentAlignmentTimer;
@@ -198,6 +199,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     public void processBarrier(CheckpointBarrier barrier, InputChannelInfo channelInfo)
             throws IOException {
         long barrierId = barrier.getId();
+        pendingBarrier = barrier;
 
         LOG.debug("{}: Received barrier from channel {} @ {}. currentCheckpointId = {}, lastComplete = {}, lastTrue = {}, currentBarrier = {}, numOpenChannels = {}", taskName, channelInfo, barrierId,currentCheckpointId, lastCancelledOrCompletedCheckpointId, lastTrueCheckpointId, numBarriersReceived, numOpenChannels);
         
@@ -248,6 +250,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
                 lastCancelledOrCompletedCheckpointId = lastTrueCheckpointId;
             }
             resetAlignmentTimer();
+            pendingBarrier = null;
             allBarriersReceivedFuture.complete(null);
         }
     }
@@ -371,13 +374,35 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     @Override
     public void processEndOfPartition() throws IOException {
         numOpenChannels--;
+        // we must mark alignment end before calling currentState.barrierReceived which might
+        // trigger a checkpoint with unfinished future for alignment duration
+        if (numBarriersReceived == numOpenChannels) {
+            if (getNumOpenChannels() > 1) {
+                markAlignmentEnd();
+            }
+        }
 
-        if (isCheckpointPending()) {
-            LOG.warn(
-                    "{}: Received EndOfPartition(-1) before completing current checkpoint {}. Skipping current checkpoint.",
-                    taskName,
-                    currentCheckpointId);
-            abortInternal(currentCheckpointId, CHECKPOINT_DECLINED_INPUT_END_OF_STREAM);
+        try {
+            currentState = currentState.barrierReceived(context, null, pendingBarrier);
+        } catch (CheckpointException e) {
+            abortInternal(pendingBarrier.getId(), e);
+        } catch (Exception e) {
+            ExceptionUtils.rethrowIOException(e);
+        }
+
+        if (numBarriersReceived == numOpenChannels) {
+            numBarriersReceived = 0;
+            lastCancelledOrCompletedCheckpointId = currentCheckpointId;
+            if(currentCheckpointId!= ControlMessage.FixedEpochNumber()) lastTrueCheckpointId = currentCheckpointId;
+            LOG.debug(
+                    "{}: Received all barriers for checkpoint {}.", taskName, currentCheckpointId);
+            if(currentCheckpointId == ControlMessage.FixedEpochNumber()){
+                currentCheckpointId = lastTrueCheckpointId;
+                lastCancelledOrCompletedCheckpointId = lastTrueCheckpointId;
+            }
+            resetAlignmentTimer();
+            pendingBarrier = null;
+            allBarriersReceivedFuture.complete(null);
         }
     }
 

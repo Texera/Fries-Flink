@@ -54,8 +54,10 @@ abstract class AbstractAlternatingAlignedBarrierHandlerState implements BarrierH
             return unalignedState.barrierReceived(controller, channelInfo, checkpointBarrier);
         }
 
-        state.removeSeenAnnouncement(channelInfo);
-        state.blockChannel(channelInfo);
+        if(channelInfo != null){
+            state.removeSeenAnnouncement(channelInfo);
+            state.blockChannel(channelInfo);
+        }
         if (controller.allBarriersReceived()) {
             controller.triggerGlobalCheckpoint(checkpointBarrier);
             state.unblockAllChannels();

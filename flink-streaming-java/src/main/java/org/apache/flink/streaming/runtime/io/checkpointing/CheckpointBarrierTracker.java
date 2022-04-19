@@ -231,15 +231,6 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
 
     @Override
     public void processEndOfPartition() throws IOException {
-        while (!pendingCheckpoints.isEmpty()) {
-            CheckpointBarrierCount barrierCount = pendingCheckpoints.removeFirst();
-            if (barrierCount.markAborted()) {
-                notifyAbort(
-                        barrierCount.checkpointId(),
-                        new CheckpointException(
-                                CheckpointFailureReason.CHECKPOINT_DECLINED_INPUT_END_OF_STREAM));
-            }
-        }
     }
 
     public long getLatestCheckpointId() {

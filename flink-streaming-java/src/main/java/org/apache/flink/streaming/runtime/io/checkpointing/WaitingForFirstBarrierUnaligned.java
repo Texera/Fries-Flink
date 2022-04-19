@@ -60,7 +60,9 @@ final class WaitingForFirstBarrierUnaligned implements BarrierHandlerState {
         // we received an out of order aligned barrier, we should resume consumption for the
         // channel, as it is being blocked by the credit-based network
         if (!checkpointBarrier.getCheckpointOptions().isUnalignedCheckpoint()) {
-            inputs[channelInfo.getGateIdx()].resumeConsumption(channelInfo);
+            if(channelInfo != null){
+                inputs[channelInfo.getGateIdx()].resumeConsumption(channelInfo);
+            }
         }
 
         CheckpointBarrier unalignedBarrier = checkpointBarrier.asUnaligned();
