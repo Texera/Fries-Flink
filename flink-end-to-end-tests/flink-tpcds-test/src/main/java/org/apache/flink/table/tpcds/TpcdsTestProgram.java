@@ -28,6 +28,7 @@ import org.apache.flink.table.api.TableResult;
 import org.apache.flink.table.api.config.ExecutionConfigOptions;
 import org.apache.flink.table.api.config.OptimizerConfigOptions;
 import org.apache.flink.table.api.internal.TableEnvironmentInternal;
+import org.apache.flink.table.catalog.CatalogFunction;
 import org.apache.flink.table.catalog.ConnectorCatalogTable;
 import org.apache.flink.table.catalog.ObjectPath;
 import org.apache.flink.table.sinks.CsvTableSink;
@@ -161,7 +162,7 @@ public class TpcdsTestProgram {
                     builder.lineDelimiter("\n");
                     CsvTableSource tableSource = builder.build();
                     ConnectorCatalogTable catalogTable =
-                            ConnectorCatalogTable.source(tableSource, true);
+                            ConnectorCatalogTable.source(tableSource, false);
                     tEnv.getCatalog(tEnv.getCurrentCatalog())
                             .ifPresent(
                                     catalog -> {

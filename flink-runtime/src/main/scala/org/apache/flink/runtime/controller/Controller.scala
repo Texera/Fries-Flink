@@ -110,10 +110,9 @@ object Controller {
         val vIds = targetVertices.map(_.getJobVertexId)
         controlMode match {
           case "epoch" =>
-            val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if (vId == t(0).asInstanceOf[JobVertexID]) {
+                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
                   println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
                   System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
@@ -124,7 +123,7 @@ object Controller {
             val graphIter = graph.getVerticesTopologically.iterator()
             while(graphIter.hasNext){
               val v = graphIter.next()
-              if(startVs.exists(v.getName.toLowerCase.contains)){
+              if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
                 v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
                   println(s"sending control message to $x")
                   x.sendControlMessage(message)
@@ -161,7 +160,7 @@ object Controller {
             }, true)
             while(graphIter.hasNext){
               val v = graphIter.next()
-              if(startVs.exists(v.getName.toLowerCase.contains)){
+              if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
                 v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
                   println(s"sending control message to $x")
                   x.sendControlMessage(message)
