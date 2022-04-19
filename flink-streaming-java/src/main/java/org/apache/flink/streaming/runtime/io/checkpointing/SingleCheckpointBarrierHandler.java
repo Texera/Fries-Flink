@@ -374,7 +374,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     @Override
     public void processEndOfPartition() throws IOException {
         numOpenChannels--;
-        
+
         if(pendingBarrier == null)return;
         // we must mark alignment end before calling currentState.barrierReceived which might
         // trigger a checkpoint with unfinished future for alignment duration

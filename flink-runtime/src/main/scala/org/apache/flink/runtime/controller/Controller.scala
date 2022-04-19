@@ -110,9 +110,10 @@ object Controller {
         val vIds = targetVertices.map(_.getJobVertexId)
         controlMode match {
           case "epoch" =>
+            val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
+                if (vId == t(0).asInstanceOf[JobVertexID]) {
                   println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
                   System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
@@ -124,7 +125,10 @@ object Controller {
             while(graphIter.hasNext){
               val v = graphIter.next()
               if(startVs.exists(v.getName.toLowerCase.contains)){
-                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
+                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
+                  println(s"sending control message to $x")
+                  x.sendControlMessage(message)
+                })
               }
             }
 
@@ -139,7 +143,10 @@ object Controller {
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
-            targetVertices.head.getTaskVertices.filter(x => !x.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
+            targetVertices.head.getTaskVertices.filter(x => !x.getExecutionState.isTerminal).foreach(x => {
+              println(s"sending control message to $x")
+              x.sendControlMessage(message)
+            })
           case "hybrid" =>
             val startVs = controlSources.split(",").map(_.toLowerCase)
             val graphIter = graph.getVerticesTopologically.iterator()
@@ -155,7 +162,10 @@ object Controller {
             while(graphIter.hasNext){
               val v = graphIter.next()
               if(startVs.exists(v.getName.toLowerCase.contains)){
-                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
+                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
+                  println(s"sending control message to $x")
+                  x.sendControlMessage(message)
+                })
               }
             }
           case other =>
