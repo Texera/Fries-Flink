@@ -110,9 +110,10 @@ object Controller {
         val vIds = targetVertices.map(_.getJobVertexId)
         controlMode match {
           case "epoch" =>
+            val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
-                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
+                if (vId == (t(0).asInstanceOf[JobVertexID])) {
                   println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
                   System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
                 }
