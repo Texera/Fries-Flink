@@ -234,7 +234,7 @@ public class TestingTaskExecutorGateway implements TaskExecutorGateway {
     }
 
     @Override
-    public CompletableFuture<Boolean> sendControlToTask(
+    public CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID,
             Time timeout,
             ControlMessage controlMessage) {

@@ -107,7 +107,7 @@ public class SimpleAckingTaskManagerGateway implements TaskManagerGateway {
     }
 
     @Override
-    public CompletableFuture<Boolean> sendControlToTask(
+    public CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID,
             Time timeout,
             ControlMessage controlMessage) {

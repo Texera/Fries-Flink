@@ -146,7 +146,7 @@ public class TaskExecutorGatewayDecoratorBase implements TaskExecutorGateway {
     }
 
     @Override
-    public CompletableFuture<Boolean> sendControlToTask(
+    public CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID, Time timeout, ControlMessage controlMessage) {
         return originalGateway.sendControlToTask(executionAttemptID, timeout, controlMessage);
     }

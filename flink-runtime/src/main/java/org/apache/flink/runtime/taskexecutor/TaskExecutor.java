@@ -834,15 +834,14 @@ public class TaskExecutor extends RpcEndpoint implements TaskExecutorGateway {
     }
 
     @Override
-    public CompletableFuture<Boolean> sendControlToTask(
+    public CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID,
             Time timeout, ControlMessage controlMessage) {
         final Task task = taskSlotTable.getTask(executionAttemptID);
-        boolean res = false;
         if(task != null){
-            res = task.sendControl(controlMessage);
+            task.sendControl(controlMessage);
         }
-        return CompletableFuture.completedFuture(res);
+        return CompletableFuture.completedFuture(Acknowledge.get());
     }
 
     @Override

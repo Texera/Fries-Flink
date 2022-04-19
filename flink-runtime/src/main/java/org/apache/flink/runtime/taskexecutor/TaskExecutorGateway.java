@@ -171,7 +171,7 @@ public interface TaskExecutorGateway
      * @param timeout for the cancel operation
      * @return Future acknowledge if the task is successfully canceled
      */
-    CompletableFuture<Boolean> sendControlToTask(
+    CompletableFuture<Acknowledge> sendControlToTask(
             ExecutionAttemptID executionAttemptID, @RpcTimeout Time timeout, ControlMessage controlMessage);
 
 

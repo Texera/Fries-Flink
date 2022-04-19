@@ -947,11 +947,10 @@ public class Task
         }
     }
 
-    public boolean sendControl(ControlMessage controlMessage){
+    public void sendControl(ControlMessage controlMessage){
        if(invokable != null) {
-            return invokable.sendControl(controlMessage);
+            invokable.sendControl(controlMessage);
         }
-       return false;
     }
 
 

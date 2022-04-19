@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.partition.ResultPartitionID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobmaster.LogicalSlot;
+import org.apache.flink.runtime.messages.Acknowledge;
 import org.apache.flink.runtime.scheduler.strategy.ConsumedPartitionGroup;
 import org.apache.flink.runtime.scheduler.strategy.ExecutionVertexID;
 import org.apache.flink.runtime.taskmanager.TaskManagerLocation;
@@ -456,7 +457,7 @@ public class ExecutionVertex
         return exec.getReleaseFuture();
     }
 
-    public CompletableFuture<Boolean> sendControlMessage(ControlMessage message){
+    public CompletableFuture<?> sendControlMessage(ControlMessage message){
         final Execution exec = currentExecution;
         return exec.sendControlRPCCall(message);
     }
