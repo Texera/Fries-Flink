@@ -93,15 +93,11 @@ object Controller {
         val innerJobID = jobID
         iteration +=1
         iter = graph.getVerticesTopologically.iterator()
-        val sources = new mutable.Queue[ExecutionJobVertex]
         val edgeMap = new mutable.HashMap[String,mutable.HashSet[String]]
         val nameToVertex = new mutable.HashMap[String,ExecutionJobVertex]
         while(iter.hasNext){
           val v = iter.next()
           nameToVertex(v.getName) = v
-          if(v.getInputs.isEmpty){
-            sources.enqueue(v)
-          }
           val inputIter = v.getInputs.iterator()
           while(inputIter.hasNext){
             val upstreamName = inputIter.next().getProducer.getName
@@ -123,25 +119,15 @@ object Controller {
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
-            val sentSet = mutable.HashSet[ExecutionJobVertex]()
-            while (sources.nonEmpty) {
-              val cand = sources.dequeue()
-              println(s"now checking ${cand.getName}")
-              val res = cand.getTaskVertices.map(e => e.getExecutionState.isTerminal).forall(x => !x)
-              if (!res) {
-                println(s"${cand.getName} is fully or partially completed")
-                edgeMap(cand.getName).foreach(x => {
-                  println(s"enqueue ${x}")
-                  sources.enqueue(nameToVertex(x))
-                })
-              }else{
-                if(!sentSet.contains(cand)){
-                  println(s"sending control message to ${cand}")
-                  cand.getTaskVertices.foreach(x => x.sendControlMessage(message))
-                  sentSet.add(cand)
-                }
+            val startVs = controlSources.split(",").map(_.toLowerCase)
+            val graphIter = graph.getVerticesTopologically.iterator()
+            while(graphIter.hasNext){
+              val v = iter.next()
+              if(startVs.exists(v.getName.toLowerCase.contains)){
+                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
               }
             }
+
           case "dcm" =>
             val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
@@ -155,7 +141,7 @@ object Controller {
             }, controlMode == "epoch")
             targetVertices.head.getTaskVertices.filter(x => !x.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
           case "hybrid" =>
-            val startVs = controlSources.split(",")
+            val startVs = controlSources.split(",").map(_.toLowerCase)
             val graphIter = graph.getVerticesTopologically.iterator()
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
               override def accept(t: Array[Object]): Unit = {
@@ -168,8 +154,8 @@ object Controller {
             }, true)
             while(graphIter.hasNext){
               val v = iter.next()
-              if(startVs.exists(v.getName.contains)){
-                v.getTaskVertices.foreach(x => x.sendControlMessage(message))
+              if(startVs.exists(v.getName.toLowerCase.contains)){
+                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => x.sendControlMessage(message))
               }
             }
           case other =>

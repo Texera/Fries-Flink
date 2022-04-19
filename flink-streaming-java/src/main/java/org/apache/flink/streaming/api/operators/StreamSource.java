@@ -113,13 +113,13 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
 
         try {
             userFunction.run(ctx);
-            operatorChain.flushOutputs();
-            int count = 0;
-            while(count < 18000){
-                count++;
-                operatorChain.broadcastEvent(new WorkerDoneEvent());
-                Thread.sleep(10);
-            }
+//            operatorChain.flushOutputs();
+//            int count = 0;
+//            while(count < 18000){
+//                count++;
+//                operatorChain.broadcastEvent(new WorkerDoneEvent());
+//                Thread.sleep(10);
+//            }
 
             // if we get here, then the user function either exited after being done (finite source)
             // or the function was canceled or stopped. For the finite source case, we should emit
