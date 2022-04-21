@@ -3,6 +3,7 @@ package org.apache.flink.runtime.controller
 import org.apache.flink.api.common.JobStatus
 import org.apache.flink.runtime.executiongraph.{ExecutionGraph, ExecutionJobVertex}
 import org.apache.flink.runtime.jobgraph.JobVertexID
+import org.apache.flink.runtime.messages.Acknowledge
 import org.apache.flink.runtime.metrics.MetricNames
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore.TaskMetricStore
@@ -10,7 +11,7 @@ import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore.TaskMetr
 import java.util.TimerTask
 import java.util.concurrent.CompletableFuture
 import java.util.function.{BiConsumer, Consumer}
-import scala.::
+import scala.compat.java8.FunctionConverters._
 import scala.collection.JavaConversions.mapAsScalaMap
 import scala.collection.mutable
 
@@ -67,6 +68,20 @@ object Controller {
     val jobID = "job"+jobCount;
     val t = new java.util.Timer()
     val task: TimerTask = new java.util.TimerTask {
+
+      def sendControl(v:ExecutionJobVertex, message:ControlMessage,futures:mutable.ArrayBuffer[CompletableFuture[_]], results:mutable.ListBuffer[Long]): Unit ={
+        v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
+          println(s"sending control message to $x")
+          val currentTime = System.currentTimeMillis()
+          futures.append(x.sendControlMessage(message).thenRun(new Runnable {
+            override def run(): Unit = {
+              val finishedTime = System.currentTimeMillis()
+              results.append(finishedTime - currentTime)
+            }
+          }))
+        })
+      }
+
       var iteration = 0;
       override def run(): Unit = {
         var iter = graph.getVerticesTopologically.iterator()
@@ -108,6 +123,8 @@ object Controller {
           }
         }
         val vIds = targetVertices.map(_.getJobVertexId)
+        val futures = mutable.ArrayBuffer[CompletableFuture[_]]()
+        val roundtripTimes = mutable.ListBuffer[Long]()
         controlMode match {
           case "epoch" =>
             val vId = vIds.head
@@ -125,13 +142,9 @@ object Controller {
             while(graphIter.hasNext){
               val v = graphIter.next()
               if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
-                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
-                  println(s"sending control message to $x")
-                  x.sendControlMessage(message)
-                })
+                sendControl(v, message, futures, roundtripTimes)
               }
             }
-
           case "dcm" =>
             val vId = vIds.head
             val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
@@ -143,10 +156,7 @@ object Controller {
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
               }
             }, controlMode == "epoch")
-            targetVertices.head.getTaskVertices.filter(x => !x.getExecutionState.isTerminal).foreach(x => {
-              println(s"sending control message to $x")
-              x.sendControlMessage(message)
-            })
+            targetVertices.foreach(v => sendControl(v, message, futures, roundtripTimes))
           case "hybrid" =>
             val startVs = controlSources.split(",").map(_.toLowerCase)
             val graphIter = graph.getVerticesTopologically.iterator()
@@ -162,14 +172,16 @@ object Controller {
             while(graphIter.hasNext){
               val v = graphIter.next()
               if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
-                v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
-                  println(s"sending control message to $x")
-                  x.sendControlMessage(message)
-                })
+                sendControl(v, message, futures, roundtripTimes)
               }
             }
           case other =>
         }
+        CompletableFuture.allOf(futures:_*).thenRun(new Runnable{
+          override def run(): Unit = {
+            println("average roundtrip time = "+ (roundtripTimes.sum/roundtripTimes.size))
+          }
+        })
         println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
       }
     }

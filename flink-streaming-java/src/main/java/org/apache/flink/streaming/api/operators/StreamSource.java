@@ -36,6 +36,8 @@ import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.concurrent.ScheduledFuture;
 
 /**
@@ -113,13 +115,25 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
 
         try {
             userFunction.run(ctx);
-//            operatorChain.flushOutputs();
-//            int count = 0;
-//            while(count < 18000){
-//                count++;
-//                operatorChain.broadcastEvent(new WorkerDoneEvent());
-//                Thread.sleep(10);
-//            }
+
+            if(System.getProperty("keepAliveOps")!=null) {
+                String keepalive = System.getProperty("keepAliveOps");
+                if(Arrays.stream(keepalive.split(",")).anyMatch(x -> getContainingTask().getName().contains(x))){
+                    if(System.getProperty("keepAliveTime")!=null) {
+                        if (System.getProperty("keepAliveMode") != null
+                                && Objects.equals(System.getProperty(
+                                "keepAliveMode"), "1")) {
+                            Integer time = Integer.parseInt(System.getProperty("keepAliveTime"));
+                            int count = 0;
+                            while (count < time / 500) {
+                                count++;
+                                operatorChain.broadcastEvent(new WorkerDoneEvent());
+                                Thread.sleep(500);
+                            }
+                        }
+                    }
+                }
+            }
 
             // if we get here, then the user function either exited after being done (finite source)
             // or the function was canceled or stopped. For the finite source case, we should emit
@@ -135,6 +149,26 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
                     operatorChain.endInput(1);
                 }
             }
+
+            if(System.getProperty("keepAliveOps")!=null) {
+                String keepalive = System.getProperty("keepAliveOps");
+                if(Arrays.stream(keepalive.split(",")).anyMatch(x -> getContainingTask().getName().contains(x))){
+                    if(System.getProperty("keepAliveTime")!=null) {
+                        if (System.getProperty("keepAliveMode") != null
+                                && Objects.equals(System.getProperty(
+                                "keepAliveMode"), "2")) {
+                            Integer time = Integer.parseInt(System.getProperty("keepAliveTime"));
+                            int count = 0;
+                            while (count < time / 500) {
+                                count++;
+                                operatorChain.broadcastEvent(new WorkerDoneEvent());
+                                Thread.sleep(500);
+                            }
+                        }
+                    }
+                }
+            }
+
         } finally {
             if (latencyEmitter != null) {
                 latencyEmitter.close();
