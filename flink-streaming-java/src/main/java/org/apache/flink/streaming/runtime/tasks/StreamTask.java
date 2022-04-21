@@ -556,6 +556,13 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
         System.out.println("receiving control message"+name+" "+subtaskIdx+" isRunning="+isRunning);
+        if(System.getProperty("controlSleepTime")!=null){
+            try {
+                Thread.sleep(Long.parseLong(System.getProperty("controlSleepTime")));
+            }catch(Exception ignored){
+
+            }
+        }
         if(!isRunning){return;}
         try{
             CompletableFuture<Void> f = new CompletableFuture<>();
