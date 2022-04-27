@@ -113,27 +113,27 @@ public class JoinWithStaticExample {
         });
         //ClassPathClassLoader globalLoader = new ClassPathClassLoader("/home/12198/libs", null);
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        int workerNum = 1;
+        int workerNum = 10;
         int numInputEvents = 10;
-        int modelScaleFactor = 4;
+        int modelScaleFactor = 32;
         int numLabelClasses = 2;
         int sourceTupleCount = 100000; // 24386900 max
-        int failureTupleIdx =  -18000000;
         boolean modelUpdating = true;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
-        int sourceTPS = 3000; //3K baseline -> 6K actual
-        int changeTPSDelay = -1;//100 secs
-        int changedTPS = 10000;
-        int sourceTimeLimit = 300000;
+        int sourceTPS = 250; //3K baseline -> 6K actual
+        int changeTPSDelay = 100000;//100 secs
+        int changeTPSDelay2 = 200000;
+        int changedTPS = 1000;
+        int sourceTimeLimit = 600000;
         setupEnvironment(env, pt);
 
-        abstract class MySource implements CheckpointedFunction, ParallelSourceFunction<Row> {
+        abstract class MySource implements ParallelSourceFunction<Row> {
 
         }
 
-        abstract class MyMLInferenceOp extends KeyedProcessFunction<Integer, Row, Boolean> implements CheckpointedFunction{
+        abstract class MyMLInferenceOp extends KeyedProcessFunction<Integer, Row, Row> implements CheckpointedFunction{
 
         }
 
@@ -142,71 +142,86 @@ public class JoinWithStaticExample {
             ListState<Long> state = null;
             boolean recovered = false;
             long current = 0;
+            long id = 0;
+            long sourceVersion = 0;
 
-            @Override
-            public void snapshotState(FunctionSnapshotContext context) throws Exception {
-                long pos = stream.getPos();
-                state.clear();
-                state.add(pos);
-                state.add(current);
-                System.out.println("source commit time = "+System.currentTimeMillis());
-                System.out.println("Saved the current pos = "+pos+" current count = "+current);
+//            @Override
+//            public void snapshotState(FunctionSnapshotContext context) throws Exception {
+//                long pos = stream.getPos();
+//                state.clear();
+//                state.add(pos);
+//                state.add(current);
+//                System.out.println("source commit time = "+System.currentTimeMillis());
+//                System.out.println("Saved the current pos = "+pos+" current count = "+current);
+//
+//            }
 
-            }
-
-            @Override
-            public void initializeState(FunctionInitializationContext context) throws Exception {
-                Configuration conf2 = new Configuration();
-                FileSystem fs2 = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf2);
-                stream = fs2.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"));
-                state = context.getOperatorStateStore().getListState(new ListStateDescriptor(
-                        "state", Long.class));
-                Iterator<Long> iter = state.get().iterator();
-                if(iter.hasNext()){
-                    stream.seek(iter.next());
-                    current = iter.next();
-                    recovered = true;
-                }
-                System.out.println("recovered the current pos = "+stream.getPos()+" current count = "+current);
-            }
+//            @Override
+//            public void initializeState(FunctionInitializationContext context) throws Exception {
+//                Configuration conf2 = new Configuration();
+//                FileSystem fs2 = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf2);
+//                stream = fs2.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"));
+//                state = context.getOperatorStateStore().getListState(new ListStateDescriptor(
+//                        "state", Long.class));
+//                Iterator<Long> iter = state.get().iterator();
+//                if(iter.hasNext()){
+//                    stream.seek(iter.next());
+//                    current = iter.next();
+//                    recovered = true;
+//                }
+//                System.out.println("recovered the current pos = "+stream.getPos()+" current count = "+current);
+//            }
 
             @Override
             public void run(SourceContext<Row> ctx) throws Exception {
-                BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
-                reader.readLine();
+                //BufferedReader reader = new BufferedReader(new InputStreamReader(stream));
+                //reader.readLine();
                 String strLine2;
                 long startTime = System.currentTimeMillis();
                 long prevTime = startTime;
                 long currentTPS = sourceTPS;
-                while ((strLine2 = reader.readLine()) != null)   {
+               // while ((strLine2 = reader.readLine()) != null)   {
+                while(true){
                     long currentTime = System.currentTimeMillis();
                     if (currentTime >= startTime+sourceTimeLimit)break;
-                    if(changeTPSDelay!= -1 && currentTime >=startTime+changeTPSDelay && currentTPS != changedTPS){
-                        currentTPS = changedTPS;
+                    if(changeTPSDelay!= -1){
+                        boolean needChange = false;
+                        if(sourceVersion == 0){
+                            needChange = currentTime >=startTime+changeTPSDelay;
+                        }else{
+                            needChange = currentTime >=startTime+changeTPSDelay2;
+                        }
+                        if(needChange){
+                            if(sourceVersion%2 ==0){
+                                currentTPS = changedTPS;
+                            }else{
+                                currentTPS = sourceTPS;
+                            }
+                            startTime = currentTime;
+                            sourceVersion++;
+                        }
                     }
 
-                    String[] arr = strLine2.split(",");
+                    //String[] arr = strLine2.split(",");
                     Row r = new Row(14);
                     r.setField(0, (int)current); //user
-                    r.setField(1, Integer.parseInt(arr[1])); //card
-                    r.setField(2, Integer.parseInt(arr[2])); //year
-                    r.setField(3, Integer.parseInt(arr[3])); //month
-                    r.setField(4, Integer.parseInt(arr[4])); //date
-                    r.setField(5, arr[5]); //time
-                    if(current == failureTupleIdx){
-                        r.setField(6, "$-999999999"); // invalid amount
-                    }else{
-                        r.setField(6, arr[6]); //amount
-                    }
-                    r.setField(7, arr[7]); //use chip
-                    r.setField(8, arr[8]); //merchant name
-                    r.setField(9, arr[9]); //merchant city
-                    r.setField(10, arr[10]); //merchant state
-                    r.setField(11, arr[11].isEmpty()? null :Double.valueOf(arr[11]).intValue()); //zip code
-                    r.setField(12, Integer.parseInt(arr[12])); //MCC
-                    r.setField(13, arr[13]); //errors
+//                    r.setField(1, Integer.parseInt(arr[1])); //card
+//                    r.setField(2, Integer.parseInt(arr[2])); //year
+//                    r.setField(3, Integer.parseInt(arr[3])); //month
+//                    r.setField(4, Integer.parseInt(arr[4])); //date
+//                    r.setField(5, arr[5]); //time
+                    r.setField(6, "$10000"); //amount
+//                    r.setField(7, arr[7]); //use chip
+//                    r.setField(8, arr[8]); //merchant name
+//                    r.setField(9, arr[9]); //merchant city
+//                    r.setField(10, arr[10]); //merchant state
+//                    r.setField(11, arr[11].isEmpty()? null :Double.valueOf(arr[11]).intValue()); //zip code
+                    r.setField(12, id); //MCC
+                    r.setField(13, sourceVersion); //errors
+                    System.out.println("S: "+id+" "+sourceVersion+" "+System.currentTimeMillis());
                     ctx.collect(r);
                     current++;
+                    id++;
                     if(current == currentTPS){
                         long now = System.currentTimeMillis();
                         long duration = now-prevTime;
@@ -217,7 +232,7 @@ public class JoinWithStaticExample {
                         prevTime = now;
                     }
                 }
-                reader.close();
+                //reader.close();
             }
 
             @Override
@@ -233,7 +248,7 @@ public class JoinWithStaticExample {
                     Row value,
                     ProcessFunction<Row, Row>.Context ctx,
                     Collector<Row> out) throws Exception {
-                out.collect(Row.project(value, new int[]{0,6}));
+                out.collect(Row.project(value, new int[]{0,6,12,13}));
             }
         }).setParallelism(parallelism).keyBy((KeySelector<Row, Integer>) value -> {
             return (Integer) value.getField(0);
@@ -253,8 +268,9 @@ public class JoinWithStaticExample {
             }
             String myID = "";
             HashMap<Integer, LinkedList<Double>> prev_transaction = new HashMap<>();
-            boolean modelUpdated = false;
+            int modelVersion = 0;
             MultiLayerNetwork net = null;
+            MultiLayerNetwork cheapNet=null;
             int currentInputNum = numInputEvents;
             long startTime = 0;
             long processed = 0;
@@ -302,6 +318,15 @@ public class JoinWithStaticExample {
             public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
                 super.open(parameters);
                 buildRNN(numInputEvents);
+                MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
+                        .seed(256)
+                        .weightInit(WeightInit.XAVIER)
+                        .updater(new Nadam())
+                        .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
+                        .gradientNormalizationThreshold(0.5)
+                        .list().layer(new DenseLayer.Builder().activation(Activation.SOFTMAX).nIn(1).nOut(2).build()).build();
+                cheapNet = new MultiLayerNetwork(conf);
+                cheapNet.init();
                 System.out.println(myID+" finished building rnn");
                 startTime = System.currentTimeMillis();
             }
@@ -315,15 +340,13 @@ public class JoinWithStaticExample {
                     @Override
             public void processElement(
                     Row value,
-                    KeyedProcessFunction<Integer, Row, Boolean>.Context ctx,
-                    Collector<Boolean> out) throws Exception {
+                    KeyedProcessFunction<Integer, Row, Row>.Context ctx,
+                    Collector<Row> out) throws Exception {
                 long begin = System.currentTimeMillis();
                 int user = value.getFieldAs(0);
+                long id = value.getFieldAs(2);
+                long sourceVersion = value.getFieldAs(3);
                 double amount = Double.valueOf(((String) value.getField(1)).substring(1));
-                if (amount == -999999999) {
-                    System.out.println(myID + " error occur time=" + System.currentTimeMillis());
-                    throw new RuntimeException("error occurred");
-                } else {
                     if (!prev_transaction.containsKey(user)) {
                         prev_transaction.put(user, new LinkedList<>());
                     }
@@ -332,24 +355,14 @@ public class JoinWithStaticExample {
                     while (user_prev_transactions.size() > currentInputNum) {
                         user_prev_transactions.remove(0);
                     }
-                    if (System.getProperty(myID) != null && !modelUpdated && modelUpdating) {
-                        System.out.println(myID+"starts building new model at "+(System.currentTimeMillis()-startTime)/1000f);
-                        modelUpdated = true;
-                        MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
-                                .seed(256)
-                                .weightInit(WeightInit.XAVIER)
-                                .updater(new Nadam())
-                                .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
-                                .gradientNormalizationThreshold(0.5)
-                                .list().layer(new DenseLayer.Builder().activation(Activation.SOFTMAX).nIn(1).nOut(2).build()).build();
-                        net = new MultiLayerNetwork(conf);
-                        net.init();
-                        System.out.println(myID+"finishes building new model at "+(System.currentTimeMillis()-startTime)/1000f);
+                    if (System.getProperty(myID) != null && Integer.parseInt(System.getProperty(myID)) == modelVersion) {
+                        modelVersion++;
+                        System.out.println(myID+"switched to new model at "+(System.currentTimeMillis()-startTime)/1000f);
                     }
-                    if(modelUpdated){
+                    if(modelVersion%2==1){
                         INDArray input = Nd4j.create(new double[]{amount}, new int[]{1, 1});
-                        double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
-                        out.collect(output[0] < output[1]);
+                        double[] output = cheapNet.output(input).reshape(numLabelClasses).toDoubleVector();
+                        out.collect(Row.of(id, sourceVersion, modelVersion));
                     }else{
                         int len = user_prev_transactions.size();
                         double[] user_trans = ArrayUtils.toPrimitive(user_prev_transactions
@@ -359,18 +372,18 @@ public class JoinWithStaticExample {
                             user_trans = ArrayUtils.addAll(new double[currentInputNum
                                     - user_trans.length], user_trans);
                         }
-                        INDArray input = Nd4j.create(user_trans, new int[]{1, 1, currentInputNum});
+                        INDArray input = Nd4j.create(user_trans, new int[]{1, currentInputNum,1});
                         double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
-                        out.collect(output[0] < output[1]);
+                        out.collect(Row.of(id, sourceVersion,modelVersion));
                     }
                     processed += System.currentTimeMillis()-begin;
                     numSample++;
                     //System.out.println("processing = "+(System.currentTimeMillis()-begin+" ms"));
                 }
-            }
-        }).setParallelism(parallelism).addSink(new SinkFunction<Boolean>() {
+        }).setParallelism(parallelism).addSink(new SinkFunction<Row>() {
                     @Override
-                    public void invoke(Boolean value, Context context) throws Exception {
+                    public void invoke(Row value, Context context) throws Exception {
+                        System.out.println("R: "+value.getField(0)+" "+value.getField(1)+" "+value.getField(2)+" "+System.currentTimeMillis());
                         SinkFunction.super.invoke(value, context);
                     }
                 })
