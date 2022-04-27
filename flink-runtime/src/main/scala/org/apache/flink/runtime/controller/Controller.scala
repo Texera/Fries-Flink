@@ -132,7 +132,7 @@ object Controller {
               override def accept(t: Array[Object]): Unit = {
                 if (vId == (t(0).asInstanceOf[JobVertexID])) {
                   println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
-                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
+                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, currentIteration.toString)
                 }
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
@@ -151,7 +151,7 @@ object Controller {
               override def accept(t: Array[Object]): Unit = {
                 if(t(0).asInstanceOf[JobVertexID] == vId){
                   println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received dcm control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, "true")
+                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, currentIteration.toString)
                 }
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
               }
@@ -164,7 +164,7 @@ object Controller {
               override def accept(t: Array[Object]): Unit = {
                 if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
                   println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received hybrid control message!")
-                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, "true")
+                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, currentIteration.toString)
                 }
                 println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
               }
