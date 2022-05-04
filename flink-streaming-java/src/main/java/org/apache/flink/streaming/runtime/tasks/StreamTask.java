@@ -107,6 +107,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
@@ -400,11 +401,12 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             CompletableFuture<Void> f = new CompletableFuture<>();
             mainMailboxExecutor.execute(() -> {
                 controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
-                if(controlMessage.EpochMode()){
-                    CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                    barrier.setMessage(controlMessage);
-                    operatorChain.broadcastEvent(barrier, false);
-                }
+                CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
+                controlMessage.numBarriersToRecv_$eq( controlMessage
+                        .numSubTasks()
+                        .get(name));
+                barrier.setMessage(controlMessage);
+                operatorChain.broadcastEvent(barrier, false, controlMessage.MCS().get(name));
                 f.complete(null);
             },"control",controlMessage, f);
             if(!mailboxProcessor.isMailboxThread()){

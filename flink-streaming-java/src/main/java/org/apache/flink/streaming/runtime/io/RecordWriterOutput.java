@@ -37,6 +37,7 @@ import org.apache.flink.streaming.runtime.tasks.WatermarkGaugeExposingOutput;
 import org.apache.flink.util.OutputTag;
 
 import java.io.IOException;
+import java.util.HashSet;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -56,15 +57,18 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
 
     private final WatermarkGauge watermarkGauge = new WatermarkGauge();
 
+    public final String targetOperator;
+
     @SuppressWarnings("unchecked")
     public RecordWriterOutput(
             RecordWriter<SerializationDelegate<StreamRecord<OUT>>> recordWriter,
             TypeSerializer<OUT> outSerializer,
             OutputTag outputTag,
             StreamStatusProvider streamStatusProvider,
-            boolean supportsUnalignedCheckpoints) {
+            boolean supportsUnalignedCheckpoints, String targetOperator) {
 
         checkNotNull(recordWriter);
+        this.targetOperator = targetOperator;
         this.outputTag = outputTag;
         // generic hack: cast the writer to generic Object type so we can use it
         // with multiplexed records and watermarks
@@ -145,7 +149,10 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
         }
     }
 
-    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {
+    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, HashSet<String> targets) throws IOException {
+        if(targets != null && !targets.contains(targetOperator)){
+            return;
+        }
         if (isPriorityEvent
                 && event instanceof CheckpointBarrier
                 && !supportsUnalignedCheckpoints) {

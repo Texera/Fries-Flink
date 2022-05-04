@@ -239,7 +239,8 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
             ExceptionUtils.rethrowIOException(e);
         }
 
-        if (numBarriersReceived == numOpenChannels) {
+        if ((currentCheckpointId != ControlMessage.FixedEpochNumber() && numBarriersReceived == numOpenChannels) ||
+                (currentCheckpointId == ControlMessage.FixedEpochNumber() && numBarriersReceived == pendingBarrier.message.numBarriersToRecv())) {
             numBarriersReceived = 0;
             lastCancelledOrCompletedCheckpointId = currentCheckpointId;
             if(currentCheckpointId!= ControlMessage.FixedEpochNumber()) lastTrueCheckpointId = currentCheckpointId;

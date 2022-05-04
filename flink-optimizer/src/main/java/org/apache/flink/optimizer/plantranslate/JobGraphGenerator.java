@@ -296,7 +296,6 @@ public class JobGraphGenerator implements Visitor<PlanNode> {
             }
         });
 
-
         return graph;
     }
 

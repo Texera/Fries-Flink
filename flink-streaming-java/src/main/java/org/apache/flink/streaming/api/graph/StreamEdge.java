@@ -129,6 +129,8 @@ public class StreamEdge implements Serializable {
         return targetId;
     }
 
+    public String getTargetName(){return targetOperatorName;}
+
     public int getTypeNumber() {
         return typeNumber;
     }

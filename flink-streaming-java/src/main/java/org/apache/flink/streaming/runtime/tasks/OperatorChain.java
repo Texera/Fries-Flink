@@ -66,6 +66,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -274,7 +275,6 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
             Map<StreamEdge, RecordWriterOutput<?>> streamOutputMap) {
         for (int i = 0; i < outEdgesInOrder.size(); i++) {
             StreamEdge outEdge = outEdgesInOrder.get(i);
-
             RecordWriterOutput<?> streamOutput =
                     createStreamOutput(
                             recordWriterDelegate.getRecordWriter(i),
@@ -396,9 +396,15 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
         broadcastEvent(event, false);
     }
 
+    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, HashSet<String> targets) throws IOException {
+        for (RecordWriterOutput<?> streamOutput : streamOutputs) {
+            streamOutput.broadcastEvent(event, isPriorityEvent, targets);
+        }
+    }
+
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {
         for (RecordWriterOutput<?> streamOutput : streamOutputs) {
-            streamOutput.broadcastEvent(event, isPriorityEvent);
+            streamOutput.broadcastEvent(event, isPriorityEvent, null);
         }
     }
 
@@ -726,7 +732,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                 outSerializer,
                 sideOutputTag,
                 this,
-                edge.supportsUnalignedCheckpoints());
+                edge.supportsUnalignedCheckpoints(),edge.getTargetName());
     }
 
     /**

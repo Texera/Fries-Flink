@@ -1,5 +1,6 @@
 package org.apache.flink.runtime.controller
 
+import java.util
 import java.util.function.Consumer
 
 object ControlMessage{
@@ -30,4 +31,7 @@ object ControlMessage{
 }
 
 
-case class ControlMessage(callback: Consumer[Array[Object]] with Serializable, EpochMode:Boolean = false)
+case class ControlMessage(callback: Consumer[Array[Object]] with Serializable,
+                          MCS:util.HashMap[String,util.HashSet[String]],
+                          numSubTasks:util.HashMap[String,Integer],
+                          var numBarriersToRecv:Int = 0)

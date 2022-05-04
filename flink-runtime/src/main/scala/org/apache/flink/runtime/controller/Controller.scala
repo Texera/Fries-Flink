@@ -1,18 +1,13 @@
 package org.apache.flink.runtime.controller
 
-import org.apache.flink.api.common.JobStatus
 import org.apache.flink.runtime.executiongraph.{ExecutionGraph, ExecutionJobVertex}
 import org.apache.flink.runtime.jobgraph.JobVertexID
-import org.apache.flink.runtime.messages.Acknowledge
-import org.apache.flink.runtime.metrics.MetricNames
 import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricFetcher
-import org.apache.flink.runtime.rest.handler.legacy.metrics.MetricStore.TaskMetricStore
 
+import java.util
 import java.util.TimerTask
 import java.util.concurrent.CompletableFuture
 import java.util.function.{BiConsumer, Consumer}
-import scala.compat.java8.FunctionConverters._
-import scala.collection.JavaConversions.mapAsScalaMap
 import scala.collection.mutable
 
 object Controller {
@@ -35,11 +30,7 @@ object Controller {
   }else{
     System.getProperty("controlInterval").toInt
   }
-  var controlMode = if(System.getProperty("controlMode") == null){
-    "subdag"
-  }else{
-    System.getProperty("controlMode")
-  }
+
   var controlDest:String = if(System.getProperty("controlDests") == null){
     ""
   }else{
@@ -50,12 +41,6 @@ object Controller {
     ""
   }else{
     System.getProperty("controlSources")
-  }
-
-  var metricCollectionInterval =  if(System.getProperty("metricCollection") == null){
-    10000
-  }else{
-    System.getProperty("metricCollection").toInt
   }
 
   def setMetricFetcher(m:MetricFetcher): Unit ={
@@ -125,58 +110,31 @@ object Controller {
         val vIds = targetVertices.map(_.getJobVertexId)
         val futures = mutable.ArrayBuffer[CompletableFuture[_]]()
         val roundtripTimes = mutable.ListBuffer[Long]()
-        controlMode match {
-          case "epoch" =>
-            val vId = vIds.head
-            val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
-              override def accept(t: Array[Object]): Unit = {
-                if (vId == (t(0).asInstanceOf[JobVertexID])) {
-                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
-                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, currentIteration.toString)
-                }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
-              }
-            }, controlMode == "epoch")
-            val startVs = controlSources.split(",").map(_.toLowerCase)
-            val graphIter = graph.getVerticesTopologically.iterator()
-            while(graphIter.hasNext){
-              val v = graphIter.next()
-              if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
-                sendControl(v, message, futures, roundtripTimes)
-              }
+        val vId = vIds.head
+
+
+        val MCS = new util.HashMap[String, util.HashSet[String]]()
+        val numTargetSubTasks = new util.HashMap[String, Integer]()
+
+
+        val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
+          override def accept(t: Array[Object]): Unit = {
+            if (vId == (t(0).asInstanceOf[JobVertexID])) {
+              println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received epoch control message!")
+              System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, currentIteration.toString)
             }
-          case "dcm" =>
-            val vId = vIds.head
-            val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
-              override def accept(t: Array[Object]): Unit = {
-                if(t(0).asInstanceOf[JobVertexID] == vId){
-                  println(t(2).asInstanceOf[String]+"-"+t(1).toString+" received dcm control message!")
-                  System.setProperty(t(2).asInstanceOf[String]+"-"+t(1).toString, currentIteration.toString)
-                }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${ System.currentTimeMillis()}")
-              }
-            }, controlMode == "epoch")
-            targetVertices.foreach(v => sendControl(v, message, futures, roundtripTimes))
-          case "hybrid" =>
-            val startVs = controlSources.split(",").map(_.toLowerCase)
-            val graphIter = graph.getVerticesTopologically.iterator()
-            val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
-              override def accept(t: Array[Object]): Unit = {
-                if (vIds.contains(t(0).asInstanceOf[JobVertexID])) {
-                  println(t(2).asInstanceOf[String] + "-" + t(1).toString + " received hybrid control message!")
-                  System.setProperty(t(2).asInstanceOf[String] + "-" + t(1).toString, currentIteration.toString)
-                }
-                println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
-              }
-            }, true)
-            while(graphIter.hasNext){
-              val v = graphIter.next()
-              if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
-                sendControl(v, message, futures, roundtripTimes)
-              }
-            }
-          case other =>
+            println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
+          }
+        }, MCS, numTargetSubTasks)
+        val startVs = controlSources.split(",").map(_.toLowerCase)
+        val graphIter = graph.getVerticesTopologically.iterator()
+        while(graphIter.hasNext){
+          val v = graphIter.next()
+          if(startVs.exists(v.getName.replace(" ","").replace("=","-").toLowerCase.contains)){
+            sendControl(v, message, futures, roundtripTimes)
+          }
         }
+
         CompletableFuture.allOf(futures:_*).thenRun(new Runnable{
           override def run(): Unit = {
             println("average roundtrip time = "+ (roundtripTimes.sum/roundtripTimes.size))
@@ -190,42 +148,6 @@ object Controller {
     }else{
       t.schedule(task, controlInitialDelay)
     }
-
-
-    def printMetrics(taskName: String, taskMetricStore: TaskMetricStore, metricName:String): Unit ={
-      val values = taskMetricStore.getAllSubtaskMetricStores.map{
-        case (mk, mv) =>
-          mv.getMetric(metricName,"0").toDouble
-      }
-      println(s"${jobID} --- $taskName --- $metricName {avg: ${values.sum/ values.size} max: ${values.max} min: ${values.min}")
-    }
-
-    val metricsCollection = new TimerTask {
-      override def run(): Unit = {
-        if(metricFetcher == null) return
-        metricFetcher.update()
-        graph.getAllVertices.foreach{
-          case (k,v) =>{
-            val taskStore = metricFetcher.getMetricStore.getTaskMetricStore(graph.getJobID.toString, k.toString)
-            if(taskStore != null){
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_IN_RATE)
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_OUT_RATE)
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_IN)
-              printMetrics(v.getName, taskStore, MetricNames.IO_NUM_RECORDS_OUT)
-            }
-          }
-        }
-      }
-    }
-
-    t.schedule(metricsCollection, metricCollectionInterval, metricCollectionInterval)
-
-    graph.getTerminationFuture.thenAccept(new Consumer[JobStatus] {
-      override def accept(t: JobStatus): Unit = {
-        task.cancel()
-        metricsCollection.cancel()
-      }
-    })
 
   }
 
