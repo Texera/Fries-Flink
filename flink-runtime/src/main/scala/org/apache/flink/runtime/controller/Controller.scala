@@ -38,10 +38,10 @@ object Controller {
     System.getProperty("controlDests")
   }
 
-  var controlSources:String = if(System.getProperty("controlSources") == null){
+  var oneToManyOperators:String = if(System.getProperty("oneToMany") == null){
     ""
   }else{
-    System.getProperty("controlSources")
+    System.getProperty("oneToMany")
   }
 
   var jobCount = 0;
@@ -92,28 +92,28 @@ object Controller {
         (result, sources)
       }
 
+      def getVerticesAndWorkers(nameString:String):(Array[ExecutionJobVertex], Array[String]) = {
+        if (nameString == ""){
+          return (Array.empty, Array.empty)
+        }
+        val iter = graph.getVerticesTopologically.iterator()
+        val names = nameString.split(",")
+        val res = mutable.ArrayBuffer[ExecutionJobVertex]()
+        val res2 = mutable.ArrayBuffer[String]()
+        while(iter.hasNext){
+          val v = iter.next()
+          if(names.exists(v.getName.contains)){
+            res.append(v)
+            v.getTaskVertices.foreach{
+              w => res2.append(w.getTaskName+"-"+w.getParallelSubtaskIndex)
+            }
+          }
+        }
+        (res.toArray,res2.toArray)
+      }
+
       var iteration = 0;
       override def run(): Unit = {
-        val iter = graph.getVerticesTopologically.iterator()
-        val targetVertices = controlDest match{
-          case "" =>
-            var last = iter.next()
-            while(iter.hasNext){
-              last = iter.next()
-            }
-            Array(last)
-          case other =>
-            val names = other.split(",")
-            val res = mutable.ArrayBuffer[ExecutionJobVertex]()
-            while(iter.hasNext){
-              val v = iter.next()
-              if(names.exists(v.getName.contains)){
-                res.append(v)
-              }
-            }
-            res.toArray
-        }
-        println(s"triggering control message, targets = ${targetVertices.map(x => x.getName).mkString(",")}")
         val currentIteration = iteration
         val innerJobID = jobID
         iteration +=1
@@ -122,11 +122,14 @@ object Controller {
 
         val graphWithSources = convertExecutionGraphToWorkerGraph(graph)
         val sources = graphWithSources._2
+        val (targetVertices, targetWorkers) = getVerticesAndWorkers(controlDest)
+        val (_, oneToManyWorkers) = getVerticesAndWorkers(oneToManyOperators)
 
+        println("graph: "+graphWithSources._1)
+        println("target: "+targetWorkers.mkString(" "))
+        println("oneToMany: "+oneToManyWorkers.mkString(" "))
         val MCS = graphWithSources._1 //TODO: apply MCS algorithm here
-
         println(MCS)
-
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           val vIds = targetVertices.map(_.getJobVertexId)
           override def accept(t: Array[Object]): Unit = {
