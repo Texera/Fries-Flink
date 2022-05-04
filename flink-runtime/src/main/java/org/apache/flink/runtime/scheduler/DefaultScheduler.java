@@ -157,6 +157,7 @@ public class DefaultScheduler extends SchedulerBase implements SchedulerOperatio
                         .createInstance(new DefaultExecutionSlotAllocationContext());
 
         this.verticesWaitingForRestart = new HashSet<>();
+
         startUpAction.accept(mainThreadExecutor);
     }
 

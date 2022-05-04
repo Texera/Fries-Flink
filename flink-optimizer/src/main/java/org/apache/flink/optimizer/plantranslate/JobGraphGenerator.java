@@ -281,6 +281,22 @@ public class JobGraphGenerator implements Visitor<PlanNode> {
         this.iterationStack = null;
 
         // return job graph
+
+        // colocate source and sink when parallelism = 1
+        final JobVertex[] colocated = {null};
+        graph.getVerticesSortedTopologicallyFromSources().forEach(jv ->{
+            if(jv.getParallelism() == 1 && jv.getMaxParallelism() == 1){
+                if(jv.isInputVertex() || jv.isOutputVertex()){
+                    if(colocated[0] == null){
+                        colocated[0] = jv;
+                    }else{
+                        jv.setStrictlyCoLocatedWith(colocated[0]);
+                    }
+                }
+            }
+        });
+
+
         return graph;
     }
 

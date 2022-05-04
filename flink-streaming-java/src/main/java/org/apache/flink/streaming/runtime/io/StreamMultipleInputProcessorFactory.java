@@ -50,7 +50,6 @@ import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
 import org.apache.flink.streaming.runtime.tasks.OperatorChain;
 import org.apache.flink.streaming.runtime.tasks.SourceOperatorStreamTask;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
 
 import java.util.Arrays;
 import java.util.List;
@@ -85,8 +84,7 @@ public class StreamMultipleInputProcessorFactory {
             OperatorChain<?, ?> operatorChain,
             InflightDataRescalingDescriptor inflightDataRescalingDescriptor,
             Function<Integer, StreamPartitioner<?>> gatePartitioners,
-            TaskInfo taskInfo,
-            DataLogManager dataLogManager) {
+            TaskInfo taskInfo) {
         checkNotNull(operatorChain);
 
         List<Input> operatorInputs = mainOperator.getInputs();
@@ -120,7 +118,7 @@ public class StreamMultipleInputProcessorFactory {
                                 i,
                                 inflightDataRescalingDescriptor,
                                 gatePartitioners,
-                                taskInfo, dataLogManager);
+                                taskInfo);
             } else if (configuredInput instanceof StreamConfig.SourceInputConfig) {
                 StreamConfig.SourceInputConfig sourceInput =
                         (StreamConfig.SourceInputConfig) configuredInput;

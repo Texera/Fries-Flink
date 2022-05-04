@@ -24,9 +24,6 @@ import org.apache.flink.core.memory.DataOutputSerializer;
 import org.apache.flink.runtime.event.AbstractEvent;
 import org.apache.flink.runtime.io.AvailabilityProvider;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
-import org.apache.flink.runtime.recovery.AsyncLogWriter;
-import org.apache.flink.runtime.recovery.RecoveryUtils;
-import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.XORShiftRandom;
 
 import org.slf4j.Logger;
@@ -103,9 +100,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
 
     protected void emit(T record, int targetSubpartition) throws IOException {
         checkErroneous();
-        if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_SEND)){
-            System.out.println(Thread.currentThread().getName() +" send record = "+record);
-        }
         targetPartition.emitRecord(serializeRecord(serializer, record), targetSubpartition);
         if (flushAlways) {
             targetPartition.flush(targetSubpartition);
@@ -117,9 +111,6 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
     }
 
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {
-        if(RecoveryUtils.needPrint(RecoveryUtils.PRINT_SEND)){
-            System.out.println(Thread.currentThread().getName() +" broadcast event = "+event);
-        }
         targetPartition.broadcastEvent(event, isPriorityEvent);
 
         if (flushAlways) {

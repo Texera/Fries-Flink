@@ -35,6 +35,7 @@ import org.apache.flink.api.common.typeutils.TypeSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.utils.ParameterTool;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.runtime.state.FunctionInitializationContext;
 import org.apache.flink.runtime.state.FunctionSnapshotContext;
 import org.apache.flink.streaming.api.checkpoint.CheckpointedFunction;
@@ -49,7 +50,6 @@ import org.apache.flink.streaming.api.functions.source.RichParallelSourceFunctio
 import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.bytedeco.opencv.opencv_dnn.RNNLayer;
@@ -76,6 +76,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Random;
 
 import static org.apache.flink.streaming.tests.DataStreamAllroundTestJobFactory.setupEnvironment;
@@ -115,19 +116,18 @@ public class JoinWithStaticExample {
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
         int numInputEvents = 10;
-        int modelScaleFactor = 32;
+        int modelScaleFactor = 8;
         int numLabelClasses = 2;
         int sourceTupleCount = 100000; // 24386900 max
         boolean modelUpdating = true;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
-        int sourceTPS = 250; //3K baseline -> 6K actual
-        int changeTPSDelay = 100000;//100 secs
-        int changeTPSDelay2 = 200000;
-        int changedTPS = 1000;
-        int sourceTimeLimit = 600000;
+        int sourceTPS = 1000; //3K baseline -> 6K actual
+        int changeTPSDelay = 50000;//50 secs
+        int sourceTimeLimit = 800000;
         setupEnvironment(env, pt);
+        env.setBufferTimeout(0);
 
         abstract class MySource implements ParallelSourceFunction<Row> {
 
@@ -140,6 +140,7 @@ public class JoinWithStaticExample {
         DataStream<Row> dynamicSource = env.addSource(new MySource() {
             FSDataInputStream stream = null;
             ListState<Long> state = null;
+            long beginTime = System.currentTimeMillis();
             boolean recovered = false;
             long current = 0;
             long id = 0;
@@ -183,20 +184,13 @@ public class JoinWithStaticExample {
                // while ((strLine2 = reader.readLine()) != null)   {
                 while(true){
                     long currentTime = System.currentTimeMillis();
-                    if (currentTime >= startTime+sourceTimeLimit)break;
+                    if (currentTime >= beginTime+sourceTimeLimit)break;
                     if(changeTPSDelay!= -1){
                         boolean needChange = false;
-                        if(sourceVersion == 0){
-                            needChange = currentTime >=startTime+changeTPSDelay;
-                        }else{
-                            needChange = currentTime >=startTime+changeTPSDelay2;
-                        }
-                        if(needChange){
-                            if(sourceVersion%2 ==0){
-                                currentTPS = changedTPS;
-                            }else{
-                                currentTPS = sourceTPS;
-                            }
+                        needChange = currentTime >=startTime+changeTPSDelay;
+                        if(needChange && sourceVersion<2){
+                            currentTPS += sourceTPS*(1+sourceVersion*6);
+                            System.out.println("Source change to "+currentTPS+" at "+(currentTime-beginTime)/1000);
                             startTime = currentTime;
                             sourceVersion++;
                         }
@@ -205,7 +199,7 @@ public class JoinWithStaticExample {
                     //String[] arr = strLine2.split(",");
                     Row r = new Row(14);
                     r.setField(0, (int)current); //user
-//                    r.setField(1, Integer.parseInt(arr[1])); //card
+                    r.setField(1, System.currentTimeMillis()); //card
 //                    r.setField(2, Integer.parseInt(arr[2])); //year
 //                    r.setField(3, Integer.parseInt(arr[3])); //month
 //                    r.setField(4, Integer.parseInt(arr[4])); //date
@@ -218,7 +212,7 @@ public class JoinWithStaticExample {
 //                    r.setField(11, arr[11].isEmpty()? null :Double.valueOf(arr[11]).intValue()); //zip code
                     r.setField(12, id); //MCC
                     r.setField(13, sourceVersion); //errors
-                    System.out.println("S: "+id+" "+sourceVersion+" "+System.currentTimeMillis());
+                    //System.out.println("S: "+id+" "+sourceVersion+" "+System.currentTimeMillis());
                     ctx.collect(r);
                     current++;
                     id++;
@@ -248,7 +242,7 @@ public class JoinWithStaticExample {
                     Row value,
                     ProcessFunction<Row, Row>.Context ctx,
                     Collector<Row> out) throws Exception {
-                out.collect(Row.project(value, new int[]{0,6,12,13}));
+                out.collect(Row.project(value, new int[]{0,6,12,13,1}));
             }
         }).setParallelism(parallelism).keyBy((KeySelector<Row, Integer>) value -> {
             return (Integer) value.getField(0);
@@ -268,12 +262,13 @@ public class JoinWithStaticExample {
             }
             String myID = "";
             HashMap<Integer, LinkedList<Double>> prev_transaction = new HashMap<>();
-            int modelVersion = 0;
+            long modelVersion = 0;
             MultiLayerNetwork net = null;
             MultiLayerNetwork cheapNet=null;
             int currentInputNum = numInputEvents;
             long startTime = 0;
             long processed = 0;
+            int modelScaleFactor1= modelScaleFactor;
             long numSample = 0;
 
             @Override
@@ -293,12 +288,12 @@ public class JoinWithStaticExample {
                         .gradientNormalization(GradientNormalization.ClipElementWiseAbsoluteValue)  //Not always required, but helps with this data set
                         .gradientNormalizationThreshold(0.5)
                         .list().layer(new LSTM.Builder().activation(Activation.TANH).nIn(numInputEvts).nOut(16).build());
-                for(int i=1;i<modelScaleFactor;++i){
+                for(int i=1;i<modelScaleFactor1;++i){
                      confBuilder=confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(16).nOut(16).build());
                 }
                 confBuilder=confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(16).nOut(8).build())
                         .layer(new LSTM.Builder().activation(Activation.TANH).nIn(8).nOut(16).build());
-                for(int i=1;i<modelScaleFactor;++i){
+                for(int i=1;i<modelScaleFactor1;++i){
                     confBuilder=confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(16).nOut(16).build());
                 }
                 confBuilder = confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(16).nOut(numInputEvts).build());
@@ -315,7 +310,7 @@ public class JoinWithStaticExample {
 
 
             @Override
-            public void open(org.apache.flink.configuration.Configuration parameters) throws Exception {
+            public void open(Configuration parameters) throws Exception {
                 super.open(parameters);
                 buildRNN(numInputEvents);
                 MultiLayerConfiguration conf = new NeuralNetConfiguration.Builder()
@@ -346,6 +341,7 @@ public class JoinWithStaticExample {
                 int user = value.getFieldAs(0);
                 long id = value.getFieldAs(2);
                 long sourceVersion = value.getFieldAs(3);
+                long sentTime = value.getFieldAs(4);
                 double amount = Double.valueOf(((String) value.getField(1)).substring(1));
                     if (!prev_transaction.containsKey(user)) {
                         prev_transaction.put(user, new LinkedList<>());
@@ -357,12 +353,15 @@ public class JoinWithStaticExample {
                     }
                     if (System.getProperty(myID) != null && Integer.parseInt(System.getProperty(myID)) == modelVersion) {
                         modelVersion++;
+                        currentInputNum=1;
+                        modelScaleFactor1=1;
+                        buildRNN(currentInputNum);
                         System.out.println(myID+"switched to new model at "+(System.currentTimeMillis()-startTime)/1000f);
                     }
-                    if(modelVersion%2==1){
+                    if(modelVersion>=2){
                         INDArray input = Nd4j.create(new double[]{amount}, new int[]{1, 1});
                         double[] output = cheapNet.output(input).reshape(numLabelClasses).toDoubleVector();
-                        out.collect(Row.of(id, sourceVersion, modelVersion));
+                        out.collect(Row.of(id, sourceVersion, modelVersion, sentTime));
                     }else{
                         int len = user_prev_transactions.size();
                         double[] user_trans = ArrayUtils.toPrimitive(user_prev_transactions
@@ -374,16 +373,68 @@ public class JoinWithStaticExample {
                         }
                         INDArray input = Nd4j.create(user_trans, new int[]{1, currentInputNum,1});
                         double[] output = net.output(input).reshape(numLabelClasses).toDoubleVector();
-                        out.collect(Row.of(id, sourceVersion,modelVersion));
+                        out.collect(Row.of(id, sourceVersion,modelVersion, sentTime));
                     }
                     processed += System.currentTimeMillis()-begin;
                     numSample++;
                     //System.out.println("processing = "+(System.currentTimeMillis()-begin+" ms"));
                 }
         }).setParallelism(parallelism).addSink(new SinkFunction<Row>() {
+                    ArrayList<Long> delays = new ArrayList<>();
+                    LinkedList<Double> window = new LinkedList<>();
+                    long wrong_count = 0;
+                    long last_sent_wrong_count = 0;
+                    long start = 0;
+                    private double calculateAverage1(List<Long> marks) {
+                        if (marks == null || marks.isEmpty()) {
+                            return 0;
+                        }
+
+                        double sum = 0;
+                        for (Long mark : marks) {
+                            sum += mark;
+                        }
+
+                        return sum / marks.size();
+                    }
+                    private double calculateAverage2(List<Double> marks) {
+                        if (marks == null || marks.isEmpty()) {
+                            return 0;
+                        }
+
+                        double sum = 0;
+                        for (Double mark : marks) {
+                            sum += mark;
+                        }
+
+                        return sum / marks.size();
+                    }
                     @Override
                     public void invoke(Row value, Context context) throws Exception {
-                        System.out.println("R: "+value.getField(0)+" "+value.getField(1)+" "+value.getField(2)+" "+System.currentTimeMillis());
+                        long current = System.currentTimeMillis();
+                        if((long)value.getFieldAs(1)!=(long)value.getFieldAs(2)){
+                            wrong_count++;
+                        }
+                        long sentTime = value.getFieldAs(3);
+                        if(start == 0){
+                            start = sentTime;
+                        }
+                        delays.add(current-sentTime);
+                        if(sentTime - start> 1000){
+                            System.out.println("current delay: "+(current-sentTime));
+                            window.add(calculateAverage1(delays));
+                            delays.clear();
+                            start = sentTime;
+                            if(window.size() == 10){
+                                System.out.println("R: "+calculateAverage2(window));
+                                window.remove(0);
+                            }
+                        }
+                        if(current-last_sent_wrong_count>1000){
+                            System.out.println("C: "+wrong_count);
+                            last_sent_wrong_count = current;
+                        }
+                        //System.out.println("R: "+value.getField(0)+" "+value.getField(1)+" "+value.getField(2)+" "+System.currentTimeMillis());
                         SinkFunction.super.invoke(value, context);
                     }
                 })

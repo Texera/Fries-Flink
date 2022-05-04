@@ -25,9 +25,6 @@ import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeCallback;
 import org.apache.flink.streaming.runtime.tasks.ProcessingTimeService;
-import org.apache.flink.streaming.util.recovery.DPLogManager;
-import org.apache.flink.streaming.util.recovery.FutureWrapper;
-import org.apache.flink.runtime.recovery.StepCursor;
 import org.apache.flink.util.Preconditions;
 
 import java.util.concurrent.ScheduledFuture;
@@ -52,8 +49,7 @@ public class StreamSourceContexts {
             StreamStatusMaintainer streamStatusMaintainer,
             Output<StreamRecord<OUT>> output,
             long watermarkInterval,
-            long idleTimeout,
-            DPLogManager dpLogManager, FutureWrapper isPausedFuture) {
+            long idleTimeout) {
 
         final SourceFunction.SourceContext<OUT> ctx;
         switch (timeCharacteristic) {
@@ -64,8 +60,7 @@ public class StreamSourceContexts {
                                 processingTimeService,
                                 checkpointLock,
                                 streamStatusMaintainer,
-                                idleTimeout,
-                                dpLogManager, isPausedFuture);
+                                idleTimeout);
 
                 break;
             case IngestionTime:
@@ -76,8 +71,7 @@ public class StreamSourceContexts {
                                 processingTimeService,
                                 checkpointLock,
                                 streamStatusMaintainer,
-                                idleTimeout,
-                                dpLogManager, isPausedFuture);
+                                idleTimeout);
 
                 break;
             case ProcessingTime:
@@ -161,10 +155,9 @@ public class StreamSourceContexts {
                 final ProcessingTimeService timeService,
                 final Object checkpointLock,
                 final StreamStatusMaintainer streamStatusMaintainer,
-                final long idleTimeout,
-                DPLogManager dpLogManager, FutureWrapper isPausedFuture) {
+                final long idleTimeout) {
 
-            super(timeService, checkpointLock, streamStatusMaintainer, idleTimeout, dpLogManager, isPausedFuture);
+            super(timeService, checkpointLock, streamStatusMaintainer, idleTimeout);
 
             this.output = Preconditions.checkNotNull(output, "The output cannot be null.");
 
@@ -311,10 +304,9 @@ public class StreamSourceContexts {
                 final ProcessingTimeService timeService,
                 final Object checkpointLock,
                 final StreamStatusMaintainer streamStatusMaintainer,
-                final long idleTimeout,
-                DPLogManager dpLogManager, FutureWrapper isPausedFuture) {
+                final long idleTimeout) {
 
-            super(timeService, checkpointLock, streamStatusMaintainer, idleTimeout, dpLogManager, isPausedFuture);
+            super(timeService, checkpointLock, streamStatusMaintainer, idleTimeout);
 
             this.output = Preconditions.checkNotNull(output, "The output cannot be null.");
             this.reuse = new StreamRecord<>(null);
@@ -373,9 +365,6 @@ public class StreamSourceContexts {
          */
         private volatile boolean failOnNextCheck;
 
-        private DPLogManager dpLogManager;
-        private FutureWrapper isPausedFuture;
-
         /**
          * Create a watermark context.
          *
@@ -389,8 +378,7 @@ public class StreamSourceContexts {
                 final ProcessingTimeService timeService,
                 final Object checkpointLock,
                 final StreamStatusMaintainer streamStatusMaintainer,
-                final long idleTimeout,
-                DPLogManager dpLogManager, FutureWrapper isPausedFuture) {
+                final long idleTimeout) {
 
             this.timeService =
                     Preconditions.checkNotNull(timeService, "Time Service cannot be null.");
@@ -405,31 +393,12 @@ public class StreamSourceContexts {
                         idleTimeout >= 1, "The idle timeout cannot be smaller than 1 ms.");
             }
             this.idleTimeout = idleTimeout;
-            if(dpLogManager!=null) {
-                this.dpLogManager = dpLogManager;
-            }else{
-                this.dpLogManager = new DPLogManager(null,null,new StepCursor(0L));
-            }
-            this.isPausedFuture = isPausedFuture;
             scheduleNextIdleDetectionTask();
         }
 
         @Override
         public void collect(T element) {
-            // first acquire stepCursor lock to avoid deadlock'
                 synchronized (checkpointLock) {
-                    if (dpLogManager.isEnabled()) {
-                        dpLogManager.recoverControl();
-                    }
-                }
-            try{
-                isPausedFuture.get();
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-                synchronized (checkpointLock) {
-                    dpLogManager.stepCursor().advance();
-//                    System.out.println("emit tuple: "+element+" when step = "+ dpLogManager.stepCursor().getCursor());
                     streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
                     if (nextCheck != null) {
                         this.failOnNextCheck = false;
@@ -443,20 +412,6 @@ public class StreamSourceContexts {
         @Override
         public void collectWithTimestamp(T element, long timestamp) {
                 synchronized (checkpointLock) {
-                    if (dpLogManager.isEnabled()) {
-                        dpLogManager.recoverControl();
-                    }
-                }
-            try{
-                isPausedFuture.get();
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-                synchronized (checkpointLock) {
-                    dpLogManager.stepCursor().advance();
-//                    System.out.println("emit tuple: " + element + " when step = " + dpLogManager
-//                            .stepCursor()
-//                            .getCursor());
                     streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
                     if (nextCheck != null) {
                         this.failOnNextCheck = false;
@@ -472,18 +427,6 @@ public class StreamSourceContexts {
         public void emitWatermark(Watermark mark) {
             if (allowWatermark(mark)) {
                     synchronized (checkpointLock) {
-                        if (dpLogManager.isEnabled()) {
-                            dpLogManager.recoverControl();
-                        }
-                    }
-                try{
-                    isPausedFuture.get();
-                }catch(Exception e){
-                    e.printStackTrace();
-                }
-                    synchronized (checkpointLock) {
-                        dpLogManager.stepCursor().advance();
-                        System.out.println("emit watermark: "+mark+" when step = "+ dpLogManager.stepCursor().getCursor());
                         streamStatusMaintainer.toggleStreamStatus(StreamStatus.ACTIVE);
 
                         if (nextCheck != null) {

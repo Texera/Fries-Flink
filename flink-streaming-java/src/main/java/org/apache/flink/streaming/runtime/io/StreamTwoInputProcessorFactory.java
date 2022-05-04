@@ -45,7 +45,6 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
 import org.apache.flink.util.function.ThrowingConsumer;
 
 import java.util.ArrayList;
@@ -76,7 +75,7 @@ public class StreamTwoInputProcessorFactory {
             Counter numRecordsIn,
             InflightDataRescalingDescriptor inflightDataRescalingDescriptor,
             Function<Integer, StreamPartitioner<?>> gatePartitioners,
-            TaskInfo taskInfo, DataLogManager dataLogManager) {
+            TaskInfo taskInfo) {
 
         checkNotNull(endOfInputAware);
 
@@ -93,7 +92,7 @@ public class StreamTwoInputProcessorFactory {
                         0,
                         inflightDataRescalingDescriptor,
                         gatePartitioners,
-                        taskInfo, dataLogManager);
+                        taskInfo);
         TypeSerializer<IN2> typeSerializer2 = streamConfig.getTypeSerializerIn(1, userClassloader);
         StreamTaskInput<IN2> input2 =
                 StreamTaskNetworkInputFactory.create(
@@ -105,7 +104,7 @@ public class StreamTwoInputProcessorFactory {
                         1,
                         inflightDataRescalingDescriptor,
                         gatePartitioners,
-                        taskInfo, dataLogManager);
+                        taskInfo);
 
         InputSelectable inputSelectable =
                 streamOperator instanceof InputSelectable ? (InputSelectable) streamOperator : null;

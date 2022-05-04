@@ -32,7 +32,6 @@ import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatus;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
 
 import java.io.IOException;
 import java.util.Map;
@@ -66,13 +65,13 @@ public final class StreamTaskNetworkInput<T>
             TypeSerializer<T> inputSerializer,
             IOManager ioManager,
             StatusWatermarkValve statusWatermarkValve,
-            int inputIndex, DataLogManager dataLogManager) {
+            int inputIndex) {
         super(
                 checkpointedInputGate,
                 inputSerializer,
                 statusWatermarkValve,
                 inputIndex,
-                getRecordDeserializers(checkpointedInputGate, ioManager), dataLogManager);
+                getRecordDeserializers(checkpointedInputGate, ioManager));
     }
 
     // Initialize one deserializer per input channel

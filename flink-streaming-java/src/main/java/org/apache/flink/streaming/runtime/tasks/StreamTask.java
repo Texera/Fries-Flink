@@ -17,8 +17,6 @@
 
 package org.apache.flink.streaming.runtime.tasks;
 
-import com.google.common.collect.HashBiMap;
-
 import org.apache.flink.runtime.controller.ControlMessage;
 
 import org.apache.flink.annotation.Internal;
@@ -63,9 +61,6 @@ import org.apache.flink.runtime.metrics.groups.OperatorMetricGroup;
 import org.apache.flink.runtime.metrics.groups.TaskIOMetricGroup;
 import org.apache.flink.runtime.operators.coordination.OperatorEvent;
 import org.apache.flink.runtime.plugable.SerializationDelegate;
-import org.apache.flink.streaming.util.recovery.EmptyLogStorage;
-import org.apache.flink.streaming.util.recovery.HDFSLogStorage;
-import org.apache.flink.streaming.util.recovery.LocalDiskLogStorage;
 import org.apache.flink.runtime.security.FlinkSecurityManager;
 import org.apache.flink.runtime.state.CheckpointStorage;
 import org.apache.flink.runtime.state.CheckpointStorageLoader;
@@ -97,15 +92,6 @@ import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxExecutorFactory;
 import org.apache.flink.streaming.runtime.tasks.mailbox.MailboxProcessor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailboxImpl;
-import org.apache.flink.runtime.recovery.AbstractLogStorage;
-import org.apache.flink.runtime.recovery.AsyncLogWriter;
-import org.apache.flink.streaming.util.recovery.DPLogManager;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
-import org.apache.flink.streaming.util.recovery.FutureWrapper;
-import org.apache.flink.streaming.util.recovery.MailResolver;
-import org.apache.flink.runtime.recovery.StepCursor;
-import org.apache.flink.runtime.recovery.RecoveryUtils;
-import org.apache.flink.streaming.util.recovery.MemoryStorage;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.FlinkException;
 import org.apache.flink.util.InstantiationUtil;
@@ -276,13 +262,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     private Timer timer = new Timer();
     private final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
 
-    protected AsyncLogWriter writer;
-    protected MailResolver mailResolver;
-    protected DataLogManager dataLogManager;
-    public DPLogManager dpLogManager;
-    public FutureWrapper isPausedFuture = new FutureWrapper();
-    private String logName;
-    private HashBiMap<Integer,ProcessingTimeCallback> hackCallbackMap = HashBiMap.create();
 
     // ------------------------------------------------------------------------
 
@@ -360,104 +339,11 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         TaskInfo info = getEnvironment().getTaskInfo();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
-        logName = "exampleJob-"+id.substring(id.length()-4)+"-"+info.getIndexOfThisSubtask();
         Map<String, String> globalArgs = environment.getExecutionConfig().getGlobalJobParameters().toMap();
-        AbstractLogStorage storage = new EmptyLogStorage(logName);
-        if(globalArgs.containsKey("enable-logging")){
-            RecoveryUtils.isEnabled = Boolean.parseBoolean(globalArgs.get("enable-logging"));
-            System.out.println("enable-logging = "+globalArgs.get("enable-logging"));
-            if(RecoveryUtils.isEnabled) {
-                if(globalArgs.containsKey("storage-type")) {
-                    String t = globalArgs.get("storage-type");
-                    if(t.equals("mem")){
-                        storage = new MemoryStorage(logName);
-                    }else if(t.equals("local")){
-                        storage = new LocalDiskLogStorage(logName);
-                    }
-                    else if (globalArgs.containsKey("hdfs-log-storage")) {
-                        storage = new HDFSLogStorage(logName, globalArgs.get("hdfs-log-storage"));
-                        System.out.println(
-                                "hdfs-log-storage = " + globalArgs.get("hdfs-log-storage"));
-                    } else {
-                        throw new RuntimeException("hdfs storage without a path1!!!!");
-                    }
-                }
-            }
-            if(globalArgs.containsKey("clear-old-log")){
-                storage.clear();
-            }
-        }else{
-            if(System.getProperty("enableLogging")!=null && System.getProperty("enableLogging").equals("true")){
-                RecoveryUtils.isEnabled = true;
-                System.out.println("enableLogging = true");
-
-                if(storage instanceof EmptyLogStorage){
-                    if(System.getProperty("storageType") != null) {
-                        String t = System.getProperty("storageType");
-                        if(t.equals("mem")){
-                            storage = new MemoryStorage(logName);
-                        }else if(t.equals("local")){
-                            storage = new LocalDiskLogStorage(logName);
-                        }else if(System.getProperty("hdfsLogStorage") != null){
-                            storage = new HDFSLogStorage(logName, System.getProperty("hdfsLogStorage"));
-                            System.out.println("hdfsLogStorage = "+System.getProperty("hdfsLogStorage"));
-                        }else{
-                            throw new RuntimeException("hdfs storage without a path2!!!!");
-                        }
-                    }
-                }
-            }
-            if(System.getProperty("clearOldLog")!=null && System.getProperty("clearOldLog").equals("true")){
-                storage.clear();
-            }
-            if(System.getProperty("logLevel") != null){
-                RecoveryUtils.printLevel = Integer.parseInt(System.getProperty("logLevel"));
-                System.out.println("logLevel = "+System.getProperty("logLevel"));
-            }
-        }
-        if(globalArgs.containsKey("print-level")){
-            RecoveryUtils.printLevel = Integer.parseInt(globalArgs.get("print-level"));
-            System.out.println("print-level = "+globalArgs.get("print-level"));
-        }
-        writer = new AsyncLogWriter(storage);
-        System.out.println(System.getProperty("enableOutputCache")==null?"enableOutputCache = null":("enableOutputCache = "+System.getProperty("enableOutputCache")));
-        if(System.getProperty("enableOutputCache")!=null && System.getProperty("enableOutputCache").equals("true")) {
-            System.out.println("enabled output cache for "+logName);
-            writer.enableOutputCache();
-        }
-        StepCursor stepCursor = new StepCursor(storage.getStepCursor());
-        for(ResultPartitionWriter rpWriter: environment.getAllWriters()){
-            for(ResultSubpartition sub: ((BufferWritingResultPartition)rpWriter).subpartitions){
-                ((PipelinedSubpartition)sub).registerOutput(writer, stepCursor);
-            }
-        }
         this.recordWriter = createRecordWriterDelegate(configuration, environment);
         this.actionExecutor = Preconditions.checkNotNull(actionExecutor);
         this.mailboxProcessor = new MailboxProcessor(this::processInput, mailbox, actionExecutor, environment.getTaskInfo().getTaskNameWithSubtasks());
         this.mainMailboxExecutor = mailboxProcessor.getMainMailboxExecutor();
-        if(globalArgs.get("control-delay") != null) {
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    if(mailbox.getState().isAcceptingMails()){
-                        mainMailboxExecutor.execute(() -> {
-                        }, "exp");
-                    }
-                }
-            }, 1000, Integer.parseInt(globalArgs.get("control-delay")));
-        }else{
-            if(System.getProperty("controlDelay") != null) {
-                timer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        if(mailbox.getState().isAcceptingMails()){
-                            mainMailboxExecutor.execute(() -> {
-                            }, "exp");
-                        }
-                    }
-                }, 1000, Integer.parseInt(System.getProperty("controlDelay")));
-            }
-        }
         this.asyncExceptionHandler = new StreamTaskAsyncExceptionHandler(environment);
         this.asyncOperationsThreadPool =
                 Executors.newCachedThreadPool(
@@ -478,74 +364,20 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                         configuration.isUnalignedCheckpointsEnabled(),
                         this::prepareInputSnapshot);
 
-        subtaskCheckpointCoordinator.registerLogWriter(writer);
-
         // if the clock is not already set, then assign a default TimeServiceProvider
         if (timerService == null) {
             this.timerService = createTimerService("Time Trigger for " + getName());
         } else {
             this.timerService = timerService;
         }
-        this.timerService.registerLogWriter(Thread.currentThread().getId(), writer);
         this.systemTimerService = createTimerService("System Time Trigger for " + getName());
         this.channelIOExecutor =
                 Executors.newSingleThreadExecutor(
                         new ExecutorThreadFactory("channel-state-unspilling"));
 
         injectChannelStateWriterIntoChannels();
-        mailResolver = new MailResolver();
-        mailResolver.bind("Timer callback",x ->{
-                //System.out.println("timer callback thread: "+Thread.currentThread().getId());
-                invokeProcessingTimeCallback(hackCallbackMap.get((int)x[0]),(long)x[1]);});
-        int i = 0;
-        for (InputGate inputGate : getEnvironment().getAllInputGates()) {
-            mailResolver.bind("Input gate request partitions"+i, () -> {inputGate.requestPartitions();});
-            i++;
-        }
-        mailResolver.bind("dispatch operator event", x -> operatorChain.dispatchOperatorEvent((OperatorID) x[0], (SerializedValue<OperatorEvent>) x[1]));
-        mailResolver.bind("pause",() ->{
-            mailboxProcessor.isPaused = true;
-            isPausedFuture.reset();
-        });
-        mailResolver.bind("resume", () ->{
-            mailboxProcessor.isPaused = false;
-            isPausedFuture.set();
-        });
-        mailResolver.bind("exp", () ->{});
         final String name = info.getTaskName();
-        mailResolver.bind("control", x ->{
-            ControlMessage controlMessage = (ControlMessage)x[0];
-            controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
-            if(controlMessage.EpochMode()){
-                CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                barrier.setMessage(controlMessage);
-                operatorChain.broadcastEvent(barrier, false);
-            }
-            ((CompletableFuture<?>)x[1]).complete(null);
-        });
 
-//        mailResolver.bind("checkpoint complete", (x)-> {notifyCheckpointComplete((long)x[0]);});
-//
-//        mailResolver.bind("checkpoint aborted", (x)-> {
-//            resetSynchronousSavepointId((long)x[0], false);
-//            subtaskCheckpointCoordinator.notifyCheckpointAborted(
-//                     (long)x[0], operatorChain, this::isRunning);});
-//
-//        mailResolver.bind("checkpoint", (x) ->{
-//            latestAsyncCheckpointStartDelayNanos =
-//                    1_000_000
-//                            * Math.max(
-//                            0,
-//                            System.currentTimeMillis()
-//                                    - ((CheckpointMetaData)x[0]).getTimestamp());
-//            triggerCheckpoint(((CheckpointMetaData)x[0]),(CheckpointOptions)x[1]);
-//        });
-        dpLogManager = new DPLogManager(writer, mailResolver, stepCursor);
-        dataLogManager = new DataLogManager(writer, stepCursor);
-        if(RecoveryUtils.isEnabled){
-            dataLogManager.enable();
-        }
-        System.out.println("started "+logName+" at "+System.currentTimeMillis()+"recovery mode = "+!stepCursor.isRecoveryCompleted());
         environment.getMetricGroup().getIOMetricGroup().setEnableBusyTime(true);
     }
 
@@ -598,7 +430,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     @Override
     public CompletableFuture<?> shutdown() {
         timer.cancel();
-        return writer.shutdown();
+        return FutureUtils.completedVoidFuture();
     }
 
     private TimerService createTimerService(String timerThreadName) {
@@ -774,7 +606,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     void executeRestore() throws Exception {
-        mailboxProcessor.registerLogManager(dpLogManager);
         if (isRunning) {
             LOG.debug("Re-restore attempt rejected.");
             return;
@@ -786,7 +617,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         mainOperator = operatorChain.getMainOperator();
 
         // task specific initialization
-        //TODO: create logger and storage here
         init();
 
         // save the work of reloading state, etc, if the task is already canceled
@@ -794,15 +624,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
 
         // -------- Invoke --------
         LOG.debug("Invoking {}", getName());
-
-//        System.out.println(logName + " all input gate start to consume states!");
-//
-//        IndexedInputGate[] inputGates = getEnvironment().getAllInputGates();
-//
-//        for (InputGate inputGate : inputGates) {
-//            inputGate.getStateConsumedFuture().get();
-//        }
-//        System.out.println(logName + " all input gate consumed states!");
 
         // we need to make sure that any triggers scheduled in open() cannot be
         // executed before all operators are opened
@@ -854,11 +675,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             recoveredFutures.add(inputGate.getStateConsumedFuture());
         }
 
-        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0])).thenRun(() -> {
-            if(RecoveryUtils.isEnabled) {
-                dpLogManager.enable();
-            }
-        })
+        return CompletableFuture.allOf(recoveredFutures.toArray(new CompletableFuture[0]))
                 .thenRun(mailboxProcessor::suspend);
     }
 
@@ -1412,8 +1229,6 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     }
 
     private void notifyCheckpointComplete(long checkpointId) throws Exception {
-        System.out.println("executing chkpt complete!");
-        writer.clearCachedOutput();
         subtaskCheckpointCoordinator.notifyCheckpointComplete(
                 checkpointId, operatorChain, this::isRunning);
         if (isRunning && isSynchronousSavepointId(checkpointId)) {
@@ -1657,19 +1472,10 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
     @VisibleForTesting
     ProcessingTimeCallback deferCallbackToMailbox(
             MailboxExecutor mailboxExecutor, ProcessingTimeCallback callback) {
-        int key;
-        if(hackCallbackMap.containsValue(callback)){
-            key = hackCallbackMap.inverse().get(callback);
-        }else{
-            key = hackCallbackMap.size();
-            hackCallbackMap.put(key,callback);
-        }
         return timestamp -> {
             mailboxExecutor.execute(
                     () -> invokeProcessingTimeCallback(callback, timestamp),
-                    "Timer callback",
-                    key,
-                    timestamp);
+                    "Timer callback");
         };
     }
 

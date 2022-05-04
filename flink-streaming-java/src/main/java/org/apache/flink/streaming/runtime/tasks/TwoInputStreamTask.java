@@ -83,6 +83,6 @@ public class TwoInputStreamTask<IN1, IN2, OUT> extends AbstractTwoInputStreamTas
                         setupNumRecordsInCounter(mainOperator),
                         getEnvironment().getTaskStateManager().getInputRescalingDescriptor(),
                         gatePartitioners,
-                        getEnvironment().getTaskInfo(), dataLogManager);
+                        getEnvironment().getTaskInfo());
     }
 }

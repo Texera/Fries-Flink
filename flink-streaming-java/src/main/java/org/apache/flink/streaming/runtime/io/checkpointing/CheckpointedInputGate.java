@@ -33,8 +33,6 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.runtime.io.StreamTaskNetworkInput;
 
-import org.apache.flink.streaming.util.recovery.DataLogManager;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,9 +66,6 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
     /** Indicate end of the input. */
     private boolean isFinished;
 
-    private DataLogManager dataLogManager;
-    private int token;
-
     /**
      * Creates a new checkpoint stream aligner.
      *
@@ -99,11 +94,6 @@ public class CheckpointedInputGate implements PullingAsyncDataInput<BufferOrEven
         this.upstreamRecoveryTracker = upstreamRecoveryTracker;
 
         waitForPriorityEvents(inputGate, mailboxExecutor);
-    }
-
-    public void attachDataLogManager(int token, DataLogManager dataLogManager){
-        this.dataLogManager = dataLogManager;
-        this.token = token;
     }
 
     /**

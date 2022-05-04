@@ -32,8 +32,6 @@ import org.apache.flink.streaming.runtime.io.checkpointing.CheckpointedInputGate
 import org.apache.flink.streaming.runtime.streamrecord.StreamElement;
 import org.apache.flink.streaming.runtime.streamrecord.StreamElementSerializer;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
-import org.apache.flink.runtime.recovery.RecoveryUtils;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -64,16 +62,13 @@ public abstract class AbstractStreamTaskNetworkInput<
     protected final int inputIndex;
     private InputChannelInfo lastChannel = null;
     private R currentRecordDeserializer = null;
-    private DataLogManager dataLogManager = null;
-    private int dataLogToken;
-    private Object checkpointLock;
 
     public AbstractStreamTaskNetworkInput(
             CheckpointedInputGate checkpointedInputGate,
             TypeSerializer<T> inputSerializer,
             StatusWatermarkValve statusWatermarkValve,
             int inputIndex,
-            Map<InputChannelInfo, R> recordDeserializers, DataLogManager dataLogManager) {
+            Map<InputChannelInfo, R> recordDeserializers) {
         super();
         this.checkpointedInputGate = checkpointedInputGate;
         deserializationDelegate =
@@ -88,13 +83,6 @@ public abstract class AbstractStreamTaskNetworkInput<
         this.statusWatermarkValve = checkNotNull(statusWatermarkValve);
         this.inputIndex = inputIndex;
         this.recordDeserializers = checkNotNull(recordDeserializers);
-        if(dataLogManager != null){
-            this.dataLogToken = dataLogManager.registerInput(this::processElement, checkpointedInputGate::handleEvent);
-            this.dataLogManager = dataLogManager;
-            checkpointedInputGate.attachDataLogManager(dataLogToken, dataLogManager);
-            this.checkpointLock = dataLogManager.getCheckpointLock();
-            //System.out.println("stream input of "+Thread.currentThread().getName()+" : "+checkpointLock);
-        }
     }
 
     @Override
@@ -115,34 +103,7 @@ public abstract class AbstractStreamTaskNetworkInput<
                 }
 
                 if (result.isFullRecord()) {
-                    if((RecoveryUtils.needPrint(RecoveryUtils.PRINT_RECEIVE))){
-                        System.out.println(dataLogManager.getName()+" receive record = "+deserializationDelegate.getInstance()+" from "+lastChannel.fromPartition);
-                    }
-                    if(dataLogManager.isEnabled()){
-                        int ret;
-                        if(checkpointLock != null) {
-                            synchronized (checkpointLock) {
-                                ret = dataLogManager.inputData(
-                                        dataLogToken,
-                                        lastChannel,
-                                        deserializationDelegate.getInstance(),
-                                        output);
-                            }
-                        }else{
-                            ret = dataLogManager.inputData(
-                                    dataLogToken,
-                                    lastChannel,
-                                    deserializationDelegate.getInstance(),
-                                    output);
-                        }
-                        if(ret == DataLogManager.PROCESSED_EVENT()){
-                            return processEvent(dataLogManager.getBuffer());
-                        }else{
-                            return InputStatus.MORE_AVAILABLE;
-                        }
-                    }else{
-                        processElement(lastChannel, deserializationDelegate.getInstance(), output);
-                    }
+                    processElement(lastChannel, deserializationDelegate.getInstance(), output);
                     return InputStatus.MORE_AVAILABLE;
                 }
             }
@@ -155,45 +116,10 @@ public abstract class AbstractStreamTaskNetworkInput<
                 if (bufferOrEvent.get().isBuffer()) {
                     processBuffer(bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get().getBuffer());
                 } else {
-                    if((RecoveryUtils.needPrint(RecoveryUtils.PRINT_RECEIVE))) {
-                        System.out.println(dataLogManager.getName() + " receive event = "
-                                + bufferOrEvent.get());
-                    }
-                    if(dataLogManager.isEnabled()){
-                        int ret;
-                        if(checkpointLock != null){
-                            synchronized (checkpointLock){
-                                ret = dataLogManager.inputEvent(dataLogToken,bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get());
-                            }
-                        }else{
-                            ret = dataLogManager.inputEvent(dataLogToken,bufferOrEvent.get().getChannelInfo(), bufferOrEvent.get());
-                        }
-                        if(ret == DataLogManager.PROCESSED_EVENT()){
-                            return processEvent(dataLogManager.getBuffer());
-                        }else{
-                            return InputStatus.MORE_AVAILABLE;
-                        }
-                    }else{
-                        checkpointedInputGate.handleEvent(bufferOrEvent.get());
-                    }
+                    checkpointedInputGate.handleEvent(bufferOrEvent.get());
                     return processEvent(bufferOrEvent.get());
                 }
             } else {
-                if(dataLogManager.isEnabled()){
-                    int ret;
-                    if(checkpointLock != null) {
-                        synchronized (checkpointLock) {
-                            ret = dataLogManager.recoverUpstream();
-                        }
-                    }else{
-                        ret = dataLogManager.recoverUpstream();
-                    }
-                    if(ret == DataLogManager.PROCESSED_EVENT()){
-                        return processEvent(dataLogManager.getBuffer());
-                    }else if(ret == DataLogManager.PROCESSED_RECORD()){
-                        return InputStatus.MORE_AVAILABLE;
-                    }
-                }
                 if (checkpointedInputGate.isFinished()) {
                     checkState(
                             checkpointedInputGate.getAvailableFuture().isDone(),

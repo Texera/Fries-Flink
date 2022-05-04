@@ -43,7 +43,6 @@ import org.apache.flink.streaming.runtime.streamrecord.LatencyMarker;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import org.apache.flink.streaming.runtime.streamstatus.StatusWatermarkValve;
 import org.apache.flink.streaming.runtime.streamstatus.StreamStatusMaintainer;
-import org.apache.flink.streaming.util.recovery.DataLogManager;
 
 import javax.annotation.Nullable;
 
@@ -91,7 +90,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
             CheckpointedInputGate inputGate = createCheckpointedInputGate();
             Counter numRecordsIn = setupNumRecordsInCounter(mainOperator);
             DataOutput<IN> output = createDataOutput(numRecordsIn);
-            StreamTaskInput<IN> input = createTaskInput(inputGate, dataLogManager);
+            StreamTaskInput<IN> input = createTaskInput(inputGate);
 
             StreamConfig.InputConfig[] inputConfigs =
                     configuration.getInputs(getUserCodeClassLoader());
@@ -154,7 +153,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
                 mainOperator, getStreamStatusMaintainer(), inputWatermarkGauge, numRecordsIn);
     }
 
-    private StreamTaskInput<IN> createTaskInput(CheckpointedInputGate inputGate, DataLogManager dataLogManager) {
+    private StreamTaskInput<IN> createTaskInput(CheckpointedInputGate inputGate) {
         int numberOfInputChannels = inputGate.getNumberOfInputChannels();
         StatusWatermarkValve statusWatermarkValve = new StatusWatermarkValve(numberOfInputChannels);
 
@@ -173,7 +172,7 @@ public class OneInputStreamTask<IN, OUT> extends StreamTask<OUT, OneInputStreamO
                                 .getInPhysicalEdges(getUserCodeClassLoader())
                                 .get(gateIndex)
                                 .getPartitioner(),
-                getEnvironment().getTaskInfo(), dataLogManager);
+                getEnvironment().getTaskInfo());
     }
 
     /**

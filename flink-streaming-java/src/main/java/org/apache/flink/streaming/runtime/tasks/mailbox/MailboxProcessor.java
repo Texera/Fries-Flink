@@ -23,7 +23,6 @@ import org.apache.flink.runtime.metrics.TimerGauge;
 import org.apache.flink.streaming.api.operators.MailboxExecutor;
 import org.apache.flink.streaming.runtime.tasks.StreamTaskActionExecutor;
 import org.apache.flink.streaming.runtime.tasks.mailbox.TaskMailbox.MailboxClosedException;
-import org.apache.flink.streaming.util.recovery.DPLogManager;
 import org.apache.flink.util.ExceptionUtils;
 import org.apache.flink.util.Preconditions;
 import org.apache.flink.util.WrappingRuntimeException;
@@ -104,9 +103,6 @@ public class MailboxProcessor implements Closeable {
 
     private final StreamTaskActionExecutor actionExecutor;
 
-    private DPLogManager dpLogManager;
-    private Object checkpointLock;
-
     public boolean isPaused = false;
 
     @VisibleForTesting
@@ -149,12 +145,6 @@ public class MailboxProcessor implements Closeable {
 
     public MailboxExecutor getMainMailboxExecutor() {
         return new MailboxExecutorImpl(mailbox, MIN_PRIORITY, actionExecutor);
-    }
-
-    public void registerLogManager(DPLogManager dpLogManager){
-        this.dpLogManager = dpLogManager;
-        this.checkpointLock = dpLogManager.getCheckpointLock();
-        //System.out.println("mailbox of "+Thread.currentThread().getName()+" : "+checkpointLock);
     }
 
     /**
@@ -227,15 +217,6 @@ public class MailboxProcessor implements Closeable {
 
         while (isNextLoopPossible()) {
             // The blocking `processMail` call will not return until default action is available.
-            if(dpLogManager.isEnabled()) {
-                if(checkpointLock != null){
-                    synchronized (checkpointLock) {
-                        dpLogManager.recoverControl();
-                    }
-                }else {
-                    dpLogManager.recoverControl();
-                }
-            }
             processMail(localMailbox, false);
             if (isNextLoopPossible() && !isPaused) {
                 mailboxDefaultAction.runDefaultAction(
@@ -378,20 +359,7 @@ public class MailboxProcessor implements Closeable {
             }
             maybePauseIdleTimer();
             Mail m = maybeMail.get();
-            if(dpLogManager.isEnabled()){
-                if(checkpointLock != null){
-                    synchronized (checkpointLock) {
-                        dpLogManager.recoverControl();
-                        dpLogManager.inputControl(m);
-                    }
-                }else{
-                    dpLogManager.recoverControl();
-                    dpLogManager.inputControl(m);
-                }
-
-            }else{
-                m.run();
-            }
+            m.run();
             maybeRestartIdleTimer();
             processedSomething = true;
         }
@@ -407,20 +375,7 @@ public class MailboxProcessor implements Closeable {
                 maybePauseIdleTimer();
             }
             Mail m = maybeMail.get();
-            if(dpLogManager.isEnabled()){
-                if(checkpointLock != null){
-                    synchronized (checkpointLock) {
-                        dpLogManager.recoverControl();
-                        dpLogManager.inputControl(m);
-                    }
-                }else{
-                    dpLogManager.recoverControl();
-                    dpLogManager.inputControl(m);
-                }
-
-            }else{
-                m.run();
-            }
+            m.run();
             if (singleStep) {
                 break;
             }

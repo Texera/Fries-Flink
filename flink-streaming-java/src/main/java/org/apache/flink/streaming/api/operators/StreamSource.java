@@ -111,7 +111,7 @@ public class StreamSource<OUT, SRC extends SourceFunction<OUT>>
                         streamStatusMaintainer,
                         collector,
                         watermarkInterval,
-                        -1, getContainingTask().dpLogManager, getContainingTask().isPausedFuture);
+                        -1);
 
         try {
             userFunction.run(ctx);
