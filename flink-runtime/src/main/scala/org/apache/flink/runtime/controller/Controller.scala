@@ -51,19 +51,6 @@ object Controller {
     val t = new java.util.Timer()
     val task: TimerTask = new java.util.TimerTask {
 
-      def sendControl(v:ExecutionJobVertex, message:ControlMessage,futures:mutable.ArrayBuffer[CompletableFuture[_]], results:mutable.ListBuffer[Long]): Unit ={
-        v.getTaskVertices.filter(!_.getExecutionState.isTerminal).foreach(x => {
-          println(s"sending control message to $x")
-          val currentTime = System.currentTimeMillis()
-          futures.append(x.sendControlMessage(message).thenRun(new Runnable {
-            override def run(): Unit = {
-              val finishedTime = System.currentTimeMillis()
-              results.append(finishedTime - currentTime)
-            }
-          }))
-        })
-      }
-
       def getAllDownstreamWorkers(v:ExecutionVertex):util.HashSet[String] = {
         val result = new util.HashSet[String]()
         v.getProducedPartitions.values().toSeq.foreach{
@@ -112,7 +99,7 @@ object Controller {
         (res.toArray,res2.toArray)
       }
 
-      var iteration = 0;
+      var iteration = 0
       override def run(): Unit = {
         val currentIteration = iteration
         val innerJobID = jobID
@@ -142,8 +129,14 @@ object Controller {
         }, MCS)
         sources.foreach{
           case (s, w) => if(MCS.containsKey(s)){
-            futures.append(w.sendControlMessage(message))
-          }
+            val currentTime = System.currentTimeMillis()
+            futures.append(w.sendControlMessage(message).thenRun(new Runnable {
+              override def run(): Unit = {
+                val finishedTime = System.currentTimeMillis()
+                roundtripTimes.append(finishedTime - currentTime)
+              }
+          }))
+        }
         }
         CompletableFuture.allOf(futures:_*).thenRun(new Runnable{
           override def run(): Unit = {
