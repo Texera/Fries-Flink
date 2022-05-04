@@ -70,6 +70,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
@@ -396,10 +397,13 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
         broadcastEvent(event, false);
     }
 
-    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, HashSet<String> targets) throws IOException {
+    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, Set<String> targets) throws IOException {
+        HashSet<String> availableOutputs = new HashSet<>();
         for (RecordWriterOutput<?> streamOutput : streamOutputs) {
+            availableOutputs.add(streamOutput.targetOperator);
             streamOutput.broadcastEvent(event, isPriorityEvent, targets);
         }
+        System.out.println("output edges: "+availableOutputs+" target edges: "+targets);
     }
 
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {

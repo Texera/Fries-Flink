@@ -38,6 +38,7 @@ import org.apache.flink.util.OutputTag;
 
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Set;
 
 import static org.apache.flink.util.Preconditions.checkNotNull;
 
@@ -149,7 +150,7 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
         }
     }
 
-    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, HashSet<String> targets) throws IOException {
+    public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, Set<String> targets) throws IOException {
         if(targets != null && !targets.contains(targetOperator)){
             return;
         }

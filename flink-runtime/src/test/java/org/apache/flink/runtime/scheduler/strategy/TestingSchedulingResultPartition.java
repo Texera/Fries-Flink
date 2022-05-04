@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.scheduler.strategy;
 
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID;
 import org.apache.flink.runtime.jobgraph.IntermediateResultPartitionID;
@@ -97,7 +98,7 @@ public class TestingSchedulingResultPartition implements SchedulingResultPartiti
     }
 
     void addConsumer(TestingSchedulingExecutionVertex consumer) {
-        this.consumerVertexGroups.add(ConsumerVertexGroup.fromSingleVertex(consumer.getId()));
+        this.consumerVertexGroups.add(ConsumerVertexGroup.fromSingleVertex(null));
         this.executionVerticesById.putIfAbsent(consumer.getId(), consumer);
     }
 

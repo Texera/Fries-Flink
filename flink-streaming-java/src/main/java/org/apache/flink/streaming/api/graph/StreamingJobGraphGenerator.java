@@ -760,7 +760,7 @@ public class StreamingJobGraphGenerator {
             // the "at-least-once" input handler is slightly cheaper (in the absence of
             // checkpoints),
             // so we use that one if checkpointing is not enabled
-            return CheckpointingMode.AT_LEAST_ONCE;
+            return CheckpointingMode.EXACTLY_ONCE;
         }
     }
 

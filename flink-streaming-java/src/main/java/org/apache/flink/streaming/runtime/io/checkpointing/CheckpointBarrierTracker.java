@@ -34,6 +34,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The {@link CheckpointBarrierTracker} keeps track of what checkpoint barriers have been received
@@ -82,6 +85,7 @@ public class CheckpointBarrierTracker extends CheckpointBarrierHandler {
         this.totalNumberOfInputChannels = totalNumberOfInputChannels;
         this.pendingCheckpoints = new ArrayDeque<>();
     }
+
 
     public void processBarrier(CheckpointBarrier receivedBarrier, InputChannelInfo channelInfo)
             throws IOException {

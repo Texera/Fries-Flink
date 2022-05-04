@@ -47,10 +47,7 @@ import org.apache.flink.runtime.io.network.api.writer.RecordWriterBuilder;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriterDelegate;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.io.network.api.writer.SingleRecordWriter;
-import org.apache.flink.runtime.io.network.partition.BufferWritingResultPartition;
 import org.apache.flink.runtime.io.network.partition.ChannelStateHolder;
-import org.apache.flink.runtime.io.network.partition.PipelinedSubpartition;
-import org.apache.flink.runtime.io.network.partition.ResultSubpartition;
 import org.apache.flink.runtime.io.network.partition.consumer.IndexedInputGate;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
@@ -107,12 +104,12 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
@@ -120,6 +117,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.flink.runtime.concurrent.FutureUtils.assertNoException;
 import static org.apache.flink.util.ExceptionUtils.firstOrSuppressed;
@@ -388,6 +387,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
         String name = info.getTaskName();
         JobVertexID jobVId = getEnvironment().getJobVertexId();
         int subtaskIdx = info.getIndexOfThisSubtask();
+        String workerName = name+"-"+subtaskIdx;
         System.out.println("receiving control message"+name+" "+subtaskIdx+" isRunning="+isRunning);
         if(System.getProperty("controlSleepTime")!=null){
             try {
@@ -402,11 +402,9 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
             mainMailboxExecutor.execute(() -> {
                 controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
                 CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
-                controlMessage.numBarriersToRecv_$eq( controlMessage
-                        .numSubTasks()
-                        .get(name));
                 barrier.setMessage(controlMessage);
-                operatorChain.broadcastEvent(barrier, false, controlMessage.MCS().get(name));
+                operatorChain.broadcastEvent(barrier, false, controlMessage.MCS().get(workerName).stream().map(s -> s.split("-")[0]).collect(
+                        Collectors.toSet()));
                 f.complete(null);
             },"control",controlMessage, f);
             if(!mailboxProcessor.isMailboxThread()){

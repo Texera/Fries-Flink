@@ -43,8 +43,11 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 
 import static org.apache.flink.runtime.checkpoint.CheckpointFailureReason.CHECKPOINT_DECLINED_INPUT_END_OF_STREAM;
@@ -82,6 +85,8 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     private long lastTrueCheckpointId = -1L;
 
     private int numOpenChannels;
+
+    private int numExpectedBarriers;
 
     private CompletableFuture<Void> allBarriersReceivedFuture = new CompletableFuture<>();
 
@@ -195,11 +200,25 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         this.inputs = inputs;
     }
 
+    private int getNumOfExpectedBarriers(HashMap<String, HashSet<String>> MCS, String workerName){
+        AtomicInteger result = new AtomicInteger();
+        MCS.forEach((name,downstreams) ->{
+            if(downstreams.contains(workerName)){
+                result.getAndIncrement();
+            }
+        });
+        return result.get();
+    }
+
     @Override
     public void processBarrier(CheckpointBarrier barrier, InputChannelInfo channelInfo)
             throws IOException {
         long barrierId = barrier.getId();
-        pendingBarrier = barrier;
+        if(pendingBarrier == null && barrier.message != null){
+            pendingBarrier = barrier;
+            numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName.split(" ")[0]);
+            System.out.println("start aligning epoch markers! marker = "+barrier.message+" expected markers = "+numExpectedBarriers);
+        }
 
         LOG.debug("{}: Received barrier from channel {} @ {}. currentCheckpointId = {}, lastComplete = {}, lastTrue = {}, currentBarrier = {}, numOpenChannels = {}", taskName, channelInfo, barrierId,currentCheckpointId, lastCancelledOrCompletedCheckpointId, lastTrueCheckpointId, numBarriersReceived, numOpenChannels);
         
@@ -240,7 +259,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         }
 
         if ((currentCheckpointId != ControlMessage.FixedEpochNumber() && numBarriersReceived == numOpenChannels) ||
-                (currentCheckpointId == ControlMessage.FixedEpochNumber() && numBarriersReceived == pendingBarrier.message.numBarriersToRecv())) {
+                (currentCheckpointId == ControlMessage.FixedEpochNumber() && numBarriersReceived == numExpectedBarriers)) {
             numBarriersReceived = 0;
             lastCancelledOrCompletedCheckpointId = currentCheckpointId;
             if(currentCheckpointId!= ControlMessage.FixedEpochNumber()) lastTrueCheckpointId = currentCheckpointId;

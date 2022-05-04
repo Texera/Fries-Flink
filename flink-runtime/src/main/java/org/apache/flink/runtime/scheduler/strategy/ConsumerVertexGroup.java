@@ -18,24 +18,39 @@
 
 package org.apache.flink.runtime.scheduler.strategy;
 
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
+
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** Group of consumer {@link ExecutionVertexID}s. */
 public class ConsumerVertexGroup implements Iterable<ExecutionVertexID> {
     private final List<ExecutionVertexID> vertices;
+    private final List<String> workerNames;
 
-    private ConsumerVertexGroup(List<ExecutionVertexID> vertices) {
+    private ConsumerVertexGroup(List<ExecutionVertexID> vertices, List<String> workerNames) {
         this.vertices = vertices;
+        this.workerNames = workerNames;
     }
 
-    public static ConsumerVertexGroup fromMultipleVertices(List<ExecutionVertexID> vertices) {
-        return new ConsumerVertexGroup(vertices);
+    public static ConsumerVertexGroup fromMultipleVertices(ExecutionVertex[] vertices) {
+        return new ConsumerVertexGroup(Arrays.stream(vertices)
+                .map(ExecutionVertex::getID)
+                .collect(Collectors.toList()), Arrays.stream(vertices)
+                .map(v ->v.getTaskName()+"-"+v.getSubTaskIndex())
+                .collect(Collectors.toList()));
     }
 
-    public static ConsumerVertexGroup fromSingleVertex(ExecutionVertexID vertex) {
-        return new ConsumerVertexGroup(Collections.singletonList(vertex));
+    public static ConsumerVertexGroup fromSingleVertex(ExecutionVertex vertex) {
+        return new ConsumerVertexGroup(Collections.singletonList(vertex.getID()),
+                Collections.singletonList(vertex.getTaskName()+"-"+vertex.getSubTaskIndex()));
+    }
+
+    public Iterator<String> getAllWorkerNames(){
+        return this.workerNames.iterator();
     }
 
     @Override

@@ -110,6 +110,10 @@ public abstract class RecordWriter<T extends IOReadableWritable> implements Avai
         broadcastEvent(event, false);
     }
 
+    public int getSubTaskIndex(){
+        return targetPartition.getPartitionId().getPartitionId().getPartitionNumber();
+    }
+
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent) throws IOException {
         targetPartition.broadcastEvent(event, isPriorityEvent);
 

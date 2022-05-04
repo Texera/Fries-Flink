@@ -71,10 +71,7 @@ public class EdgeManagerBuildUtil {
         }
 
         ConsumerVertexGroup vertices =
-                ConsumerVertexGroup.fromMultipleVertices(
-                        Arrays.stream(taskVertices)
-                                .map(ExecutionVertex::getID)
-                                .collect(Collectors.toList()));
+                ConsumerVertexGroup.fromMultipleVertices(taskVertices);
         for (IntermediateResultPartition partition : intermediateResult.getPartitions()) {
             partition.addConsumers(vertices);
         }
@@ -92,7 +89,7 @@ public class EdgeManagerBuildUtil {
                 IntermediateResultPartition partition = intermediateResult.getPartitions()[i];
 
                 ConsumerVertexGroup consumerVertexGroup =
-                        ConsumerVertexGroup.fromSingleVertex(executionVertex.getID());
+                        ConsumerVertexGroup.fromSingleVertex(executionVertex);
                 partition.addConsumers(consumerVertexGroup);
 
                 ConsumedPartitionGroup consumedPartitionGroup =
@@ -104,7 +101,7 @@ public class EdgeManagerBuildUtil {
 
                 ExecutionVertex executionVertex = taskVertices[index];
                 ConsumerVertexGroup consumerVertexGroup =
-                        ConsumerVertexGroup.fromSingleVertex(executionVertex.getID());
+                        ConsumerVertexGroup.fromSingleVertex(executionVertex);
 
                 int start = index * sourceCount / targetCount;
                 int end = (index + 1) * sourceCount / targetCount;
@@ -135,17 +132,17 @@ public class EdgeManagerBuildUtil {
                 int start = (int) (Math.ceil(partitionNum * factor));
                 int end = (int) (Math.ceil((partitionNum + 1) * factor));
 
-                List<ExecutionVertexID> consumers = new ArrayList<>(end - start);
+                List<ExecutionVertex> consumers = new ArrayList<>(end - start);
 
                 for (int i = start; i < end; i++) {
                     ExecutionVertex executionVertex = taskVertices[i];
                     executionVertex.addConsumedPartitionGroup(consumerPartitionGroup);
 
-                    consumers.add(executionVertex.getID());
+                    consumers.add(executionVertex);
                 }
 
                 ConsumerVertexGroup consumerVertexGroup =
-                        ConsumerVertexGroup.fromMultipleVertices(consumers);
+                        ConsumerVertexGroup.fromMultipleVertices(consumers.toArray(new ExecutionVertex[0]));
                 partition.addConsumers(consumerVertexGroup);
             }
         }

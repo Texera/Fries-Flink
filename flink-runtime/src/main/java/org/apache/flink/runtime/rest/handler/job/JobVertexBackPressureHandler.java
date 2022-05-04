@@ -66,7 +66,6 @@ public class JobVertexBackPressureHandler
             MetricFetcher metricFetcher) {
         super(leaderRetriever, timeout, responseHeaders, messageHeaders);
         this.metricFetcher = metricFetcher;
-        Controller.setMetricFetcher(metricFetcher);
     }
 
     @Override

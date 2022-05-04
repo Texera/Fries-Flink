@@ -32,6 +32,4 @@ object ControlMessage{
 
 
 case class ControlMessage(callback: Consumer[Array[Object]] with Serializable,
-                          MCS:util.HashMap[String,util.HashSet[String]],
-                          numSubTasks:util.HashMap[String,Integer],
-                          var numBarriersToRecv:Int = 0)
+                          MCS:util.HashMap[String,util.HashSet[String]])

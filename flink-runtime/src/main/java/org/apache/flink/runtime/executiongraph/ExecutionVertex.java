@@ -172,6 +172,8 @@ public class ExecutionVertex
         return this.jobVertex.getJobVertex().getName();
     }
 
+    public int getSubTaskIndex(){return this.subTaskIndex;}
+
     /**
      * Creates a simple name representation in the style 'taskname (x/y)', where 'taskname' is the
      * name as returned by {@link #getTaskName()}, 'x' is the parallel subtask index as returned by

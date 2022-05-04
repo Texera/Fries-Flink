@@ -28,6 +28,7 @@ import org.apache.flink.api.java.utils.ParameterTool;
 
 import org.apache.flink.shaded.guava18.com.google.common.collect.Lists;
 
+import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.ProcessFunction;
@@ -97,6 +98,8 @@ public class DataStreamAllroundTestProgram {
 
         setupEnvironment(env, pt);
 
+        env.getCheckpointConfig().setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+
 //        ControlMessage.consumer_$eq(new Consumer<Object[]>() {
 //            @Override
 //            public void accept(Object[] objects) {
@@ -143,7 +146,7 @@ public class DataStreamAllroundTestProgram {
                 out.collect("123");
             }
 
-        }).name("process1").setParallelism(1).shuffle().process(new ProcessFunction<Object, Object>() {
+        }).name("process1").setParallelism(4).shuffle().process(new ProcessFunction<Object, Object>() {
             String myID = "";
             int stage = 1;
             long discarded = 0;
@@ -181,7 +184,7 @@ public class DataStreamAllroundTestProgram {
                         break;
                 }
             }
-        }).name("process2").setParallelism(1).shuffle().addSink(new SinkFunction<Object>() {
+        }).name("process2").setParallelism(8).shuffle().addSink(new SinkFunction<Object>() {
 
         }).setParallelism(1);
 

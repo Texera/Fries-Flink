@@ -78,13 +78,8 @@ public class TaskInfo {
         this.attemptNumber = attemptNumber;
         this.taskNameWithSubtasks =
                 taskName
-                        + " ("
-                        + (indexOfSubtask + 1)
-                        + '/'
-                        + numberOfParallelSubtasks
-                        + ')'
-                        + "#"
-                        + attemptNumber;
+                        + "-"
+                        + (indexOfSubtask);
         this.allocationIDAsString = checkNotNull(allocationIDAsString);
     }
 

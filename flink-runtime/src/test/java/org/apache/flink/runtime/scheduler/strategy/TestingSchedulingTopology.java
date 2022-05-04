@@ -19,6 +19,7 @@
 package org.apache.flink.runtime.scheduler.strategy;
 
 import org.apache.flink.runtime.execution.ExecutionState;
+import org.apache.flink.runtime.executiongraph.ExecutionVertex;
 import org.apache.flink.runtime.executiongraph.failover.flip1.PipelinedRegionComputeUtil;
 import org.apache.flink.runtime.io.network.partition.ResultPartitionType;
 import org.apache.flink.runtime.jobgraph.DistributionPattern;
@@ -326,10 +327,7 @@ public class TestingSchedulingTopology implements SchedulingTopology {
             final IntermediateDataSetID intermediateDataSetId = new IntermediateDataSetID();
 
             ConsumerVertexGroup consumerVertexGroup =
-                    ConsumerVertexGroup.fromMultipleVertices(
-                            consumers.stream()
-                                    .map(TestingSchedulingExecutionVertex::getId)
-                                    .collect(Collectors.toList()));
+                    ConsumerVertexGroup.fromMultipleVertices(new ExecutionVertex[0]);
 
             Map<ExecutionVertexID, TestingSchedulingExecutionVertex> consumerVertexById =
                     consumers.stream()

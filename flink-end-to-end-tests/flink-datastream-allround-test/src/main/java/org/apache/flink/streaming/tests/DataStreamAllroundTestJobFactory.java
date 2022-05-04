@@ -260,10 +260,7 @@ public class DataStreamAllroundTestJobFactory {
                 pt.getLong(
                         ENVIRONMENT_CHECKPOINT_INTERVAL.key(),
                         ENVIRONMENT_CHECKPOINT_INTERVAL.defaultValue());
-        CheckpointingMode checkpointingMode =
-                semantics.equalsIgnoreCase("exactly-once")
-                        ? CheckpointingMode.EXACTLY_ONCE
-                        : CheckpointingMode.AT_LEAST_ONCE;
+        CheckpointingMode checkpointingMode = CheckpointingMode.EXACTLY_ONCE;
 
         env.enableCheckpointing(checkpointInterval, checkpointingMode);
 
