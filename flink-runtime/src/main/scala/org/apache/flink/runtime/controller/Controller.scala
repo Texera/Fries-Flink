@@ -33,13 +33,13 @@ object Controller {
   }
 
   var controlDest:String = if(System.getProperty("controlDests") == null){
-    ""
+    "sink"
   }else{
     System.getProperty("controlDests")
   }
 
   var oneToManyOperators:String = if(System.getProperty("oneToMany") == null){
-    ""
+    "source"
   }else{
     System.getProperty("oneToMany")
   }
@@ -63,20 +63,16 @@ object Controller {
 
       def convertExecutionGraphToWorkerGraph(graph:ExecutionGraph):(util.HashMap[String, util.HashSet[String]], mutable.HashMap[String, ExecutionVertex]) = {
         val result = new util.HashMap[String, util.HashSet[String]]()
-        val sources = new mutable.HashMap[String, ExecutionVertex]()
+        val mapping = new mutable.HashMap[String, ExecutionVertex]()
         graph.getAllVertices.foreach{
           case (_, v) =>
-            if(v.getInputs.isEmpty){
-              v.getTaskVertices.foreach{
-                w => sources(w.getTaskName+"-"+w.getParallelSubtaskIndex) = w
-              }
-            }
             v.getTaskVertices.foreach{
             w =>
               result.put(w.getTaskName+"-"+w.getParallelSubtaskIndex, getAllDownstreamWorkers(w))
+              mapping(w.getTaskName+"-"+w.getParallelSubtaskIndex) = w
           }
         }
-        (result, sources)
+        (result, mapping)
       }
 
       def getVerticesAndWorkers(nameString:String):(Array[ExecutionJobVertex], Array[String]) = {
@@ -89,7 +85,7 @@ object Controller {
         val res2 = mutable.ArrayBuffer[String]()
         while(iter.hasNext){
           val v = iter.next()
-          if(names.exists(v.getName.contains)){
+          if(names.exists(v.getName.toLowerCase.replace(" ","").replace("=","_").contains)){
             res.append(v)
             v.getTaskVertices.foreach{
               w => res2.append(w.getTaskName+"-"+w.getParallelSubtaskIndex)
@@ -108,15 +104,15 @@ object Controller {
         val roundtripTimes = mutable.ListBuffer[Long]()
 
         val graphWithSources = convertExecutionGraphToWorkerGraph(graph)
-        val sources = graphWithSources._2
+        val mapping = graphWithSources._2
         val (targetVertices, targetWorkers) = getVerticesAndWorkers(controlDest)
         val (_, oneToManyWorkers) = getVerticesAndWorkers(oneToManyOperators)
 
         println("graph: "+graphWithSources._1)
         println("target: "+targetWorkers.mkString(" "))
         println("oneToMany: "+oneToManyWorkers.mkString(" "))
-        val MCS = graphWithSources._1 //TODO: apply MCS algorithm here
-        println(MCS)
+        val MCS = FriesAlg.computeMCS(graphWithSources._1, targetWorkers, oneToManyWorkers)
+        println("MCS: "+MCS)
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           val vIds = targetVertices.map(_.getJobVertexId)
           override def accept(t: Array[Object]): Unit = {
@@ -127,16 +123,16 @@ object Controller {
             println(s"$innerJobID received iteration(${t(2).asInstanceOf[String]}-${t(1)}) $currentIteration time=${System.currentTimeMillis()}")
           }
         }, MCS)
-        sources.foreach{
-          case (s, w) => if(MCS.containsKey(s)){
+        FriesAlg.getSources(MCS).foreach{
+          case sourceWorkerName =>
+            val worker = mapping(sourceWorkerName)
             val currentTime = System.currentTimeMillis()
-            futures.append(w.sendControlMessage(message).thenRun(new Runnable {
+            futures.append(worker.sendControlMessage(message).thenRun(new Runnable {
               override def run(): Unit = {
                 val finishedTime = System.currentTimeMillis()
                 roundtripTimes.append(finishedTime - currentTime)
               }
           }))
-        }
         }
         CompletableFuture.allOf(futures:_*).thenRun(new Runnable{
           override def run(): Unit = {
