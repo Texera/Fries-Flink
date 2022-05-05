@@ -11,7 +11,7 @@ mvn clean package -Drat.numUnapprovedLicenses=1000 -DskipTests -Dfast -Dchecksty
 
 This step is the same as Flink's original instruction. Fries is already a built-in functionality of Flink in this repo. To enable Fries, you can pass the following parameters as JVM params(start with"-D") in flink-conf.yaml
 
-## Resahpe parameters:
+## Fries parameters:
 
 Some parameters of Fries can be tuned:
 | Parameter name  | Type | Default value | Usage |
