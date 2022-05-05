@@ -217,7 +217,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         if(pendingBarrier == null && barrier.message != null){
             pendingBarrier = barrier;
             numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName.split(" ")[0]);
-            System.out.println("start aligning epoch markers! marker = "+barrier.message+" expected markers = "+numExpectedBarriers);
+            System.out.println(taskName+" start aligning epoch markers! expected markers = "+numExpectedBarriers);
         }
 
         LOG.debug("{}: Received barrier from channel {} @ {}. currentCheckpointId = {}, lastComplete = {}, lastTrue = {}, currentBarrier = {}, numOpenChannels = {}", taskName, channelInfo, barrierId,currentCheckpointId, lastCancelledOrCompletedCheckpointId, lastTrueCheckpointId, numBarriersReceived, numOpenChannels);

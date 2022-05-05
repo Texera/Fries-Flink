@@ -989,10 +989,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
      * @return The name of the task, with subtask indicator and execution id.
      */
     String getTaskNameWithSubtaskAndId() {
-        return getEnvironment().getTaskInfo().getTaskNameWithSubtasks()
-                + " ("
-                + getEnvironment().getExecutionId()
-                + ')';
+        return getEnvironment().getTaskInfo().getTaskNameWithSubtasks();
     }
 
     public CheckpointStorageWorkerView getCheckpointStorage() {
