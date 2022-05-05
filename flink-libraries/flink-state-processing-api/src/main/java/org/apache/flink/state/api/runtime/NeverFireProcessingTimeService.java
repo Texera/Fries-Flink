@@ -57,11 +57,6 @@ public final class NeverFireProcessingTimeService implements TimerService {
     }
 
     @Override
-    public void registerLogWriter(long id, AsyncLogWriter writer) {
-        //do nothing since it never fire
-    }
-
-    @Override
     public boolean isTerminated() {
         return shutdown.get();
     }

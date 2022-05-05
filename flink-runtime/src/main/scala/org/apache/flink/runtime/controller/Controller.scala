@@ -14,34 +14,40 @@ import scala.collection.mutable.ArrayBuffer
 
 object Controller {
 
-  var controlNonstop:Boolean = if(System.getProperty("controlNonstop") == null){
+  var repeated:Boolean = if(System.getProperty("repeatedReconfiguration") == null){
     false
   }else{
-    System.getProperty("controlNonstop").toBoolean
+    System.getProperty("repeatedReconfiguration").toBoolean
   }
 
-  var controlInitialDelay:Int = if(System.getProperty("controlInitialDelay") == null){
+  var initialDelay:Int = if(System.getProperty("reconfInitialDelay") == null){
     5000
   }else{
-    System.getProperty("controlInitialDelay").toInt
+    System.getProperty("reconfInitialDelay").toInt
   }
 
-  var controlInterval:Int = if(System.getProperty("controlInterval") == null){
+  var interval:Int = if(System.getProperty("reconfInterval") == null){
     10000
   }else{
-    System.getProperty("controlInterval").toInt
+    System.getProperty("reconfInterval").toInt
   }
 
-  var controlDest:String = if(System.getProperty("controlDests") == null){
-    "sink"
+  var targets:String = if(System.getProperty("reconfTargets") == null){
+    ""
   }else{
-    System.getProperty("controlDests")
+    System.getProperty("reconfTargets")
   }
 
   var oneToManyOperators:String = if(System.getProperty("oneToMany") == null){
-    "source"
+    ""
   }else{
     System.getProperty("oneToMany")
+  }
+
+  var scheduler:String = if(System.getProperty("reconfScheduler") == null){
+    "epoch"
+  }else{
+    System.getProperty("reconfScheduler")
   }
 
   var jobCount = 0;
@@ -103,16 +109,21 @@ object Controller {
         val futures = mutable.ArrayBuffer[CompletableFuture[_]]()
         val roundtripTimes = mutable.ListBuffer[Long]()
 
-        val graphWithSources = convertExecutionGraphToWorkerGraph(graph)
-        val mapping = graphWithSources._2
-        val (targetVertices, targetWorkers) = getVerticesAndWorkers(controlDest)
+        val graphWithMapping = convertExecutionGraphToWorkerGraph(graph)
+        val mapping = graphWithMapping._2
+        val (targetVertices, targetWorkers) = getVerticesAndWorkers(targets)
         val (_, oneToManyWorkers) = getVerticesAndWorkers(oneToManyOperators)
 
-        println("graph: "+graphWithSources._1)
+        println("graph: "+graphWithMapping._1)
         println("target: "+targetWorkers.mkString(" "))
         println("oneToMany: "+oneToManyWorkers.mkString(" "))
-        val MCS = FriesAlg.computeMCS(graphWithSources._1, targetWorkers, oneToManyWorkers)
-        println("MCS: "+MCS)
+        val MCS = if(scheduler != "epoch") {
+          val result = FriesAlg.computeMCS(graphWithMapping._1, targetWorkers, oneToManyWorkers)
+          println("MCS: "+result)
+          result
+        }else{
+          graphWithMapping._1
+        }
         val message = ControlMessage(new Consumer[Array[Object]] with Serializable {
           val vIds = targetVertices.map(_.getJobVertexId)
           override def accept(t: Array[Object]): Unit = {
@@ -142,10 +153,10 @@ object Controller {
         println(s"$jobID sent iteration $currentIteration time=${System.currentTimeMillis()}")
       }
     }
-    if(controlNonstop){
-      t.schedule(task, controlInitialDelay, controlInterval)
+    if(repeated){
+      t.schedule(task, initialDelay, interval)
     }else{
-      t.schedule(task, controlInitialDelay)
+      t.schedule(task, initialDelay)
     }
 
   }
