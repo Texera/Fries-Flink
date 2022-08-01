@@ -143,7 +143,7 @@ public class JoinWithStaticExample2 {
             public void initializeState(FunctionInitializationContext context) throws Exception {
                 Configuration conf2 = new Configuration();
                 FileSystem fs2 = FileSystem.get(new URI("hdfs://10.128.0.10:8020"),conf2);
-                stream = fs2.open(new org.apache.hadoop.fs.Path("/IBM-transaction-dataset.csv"));
+                stream = fs2.open(new org.apache.hadoop.fs.Path("/card_transaction.v1.csv"));
                 state = context.getOperatorStateStore().getListState(new ListStateDescriptor(
                         "state", Long.class));
                 Iterator<Long> iter = state.get().iterator();
@@ -265,56 +265,57 @@ public class JoinWithStaticExample2 {
                     public Integer getKey(Row value) throws Exception {
                         return value.getFieldAs(2).hashCode();
                     }
-                }).process(new MyInferenceOp<String, Tuple2<Double, Double>>(2, numInputEvents2, modelScaleFactor2, modelUpdating) {
-
-                    @Override
-                    public void initializeState(FunctionInitializationContext context) throws Exception {
-                        prev_transaction_state = context.getKeyedStateStore().getMapState(new MapStateDescriptor<String,LinkedList<Tuple2<Double, Double>>>("map"+myID,
-                                TypeInformation.of(new TypeHint<String>() {}), TypeInformation.of(
-                                new TypeHint<LinkedList<Tuple2<Double, Double>>>() {})));
-                    }
-
-                    @Override
-                    public String getKey(Row row) {
-                        return row.getFieldAs(2);
-                    }
-
-                    @Override
-                    public Tuple2<Double, Double> getValue(Row row) {
-                        double d = Double.valueOf(((String) row.getField(1)).substring(1));
-                        double d2 = (Boolean) row.getFieldAs(3) ? 1: 0 ;
-                        return Tuple2.of(d, d2);
-                    }
-
-                    @Override
-                    public INDArray mkInput(List<Tuple2<Double, Double>> prev_trans) {
-                        if (modelUpdated) {
-                            Tuple2<Double, Double> t = prev_trans.get(prev_trans.size() - 1);
-                            return Nd4j.create(
-                                    new double[]{t.f0,t.f1},
-                                    new int[]{1, 2});
-                        } else {
-                            int len = prev_trans.size();
-                            INDArray arr = Nd4j.zeros(1,2, currentInputNum);
-                            for(int i=0;i<currentInputNum;++i){
-                                if(len-1-i>=0){
-                                    Tuple2<Double, Double> t = prev_trans.get(len-1-i);
-                                    arr.putScalar(new int[]{0,0,currentInputNum-i-1},t.f0);
-                                    arr.putScalar(new int[]{0,1,currentInputNum-i-1},t.f1);
-                                }else{
-                                    arr.putScalar(new int[]{0,0,currentInputNum-i-1},0);
-                                    arr.putScalar(new int[]{0,1,currentInputNum-i-1},0);
-                                }
-                            }
-                            return arr;
-                        }
-                    }
-                }).setParallelism(parallelism).addSink(new SinkFunction<Row>() {
-                    @Override
-                    public void invoke(Row value, Context context) throws Exception {
-                        SinkFunction.super.invoke(value, context);
-                    }
-                })
+                });
+//                .process(new MyInferenceOp<String, Tuple2<Double, Double>>(2, numInputEvents2, modelScaleFactor2, modelUpdating) {
+//
+//                    @Override
+//                    public void initializeState(FunctionInitializationContext context) throws Exception {
+//                        prev_transaction_state = context.getKeyedStateStore().getMapState(new MapStateDescriptor<String,LinkedList<Tuple2<Double, Double>>>("map"+myID,
+//                                TypeInformation.of(new TypeHint<String>() {}), TypeInformation.of(
+//                                new TypeHint<LinkedList<Tuple2<Double, Double>>>() {})));
+//                    }
+//
+//                    @Override
+//                    public String getKey(Row row) {
+//                        return row.getFieldAs(2);
+//                    }
+//
+//                    @Override
+//                    public Tuple2<Double, Double> getValue(Row row) {
+//                        double d = Double.valueOf(((String) row.getField(1)).substring(1));
+//                        double d2 = (Boolean) row.getFieldAs(3) ? 1: 0 ;
+//                        return Tuple2.of(d, d2);
+//                    }
+//
+//                    @Override
+//                    public INDArray mkInput(List<Tuple2<Double, Double>> prev_trans) {
+//                        if (modelUpdated) {
+//                            Tuple2<Double, Double> t = prev_trans.get(prev_trans.size() - 1);
+//                            return Nd4j.create(
+//                                    new double[]{t.f0,t.f1},
+//                                    new int[]{1, 2});
+//                        } else {
+//                            int len = prev_trans.size();
+//                            INDArray arr = Nd4j.zeros(1,2, currentInputNum);
+//                            for(int i=0;i<currentInputNum;++i){
+//                                if(len-1-i>=0){
+//                                    Tuple2<Double, Double> t = prev_trans.get(len-1-i);
+//                                    arr.putScalar(new int[]{0,0,currentInputNum-i-1},t.f0);
+//                                    arr.putScalar(new int[]{0,1,currentInputNum-i-1},t.f1);
+//                                }else{
+//                                    arr.putScalar(new int[]{0,0,currentInputNum-i-1},0);
+//                                    arr.putScalar(new int[]{0,1,currentInputNum-i-1},0);
+//                                }
+//                            }
+//                            return arr;
+//                        }
+//                    }
+//                }).setParallelism(parallelism).addSink(new SinkFunction<Row>() {
+//                    @Override
+//                    public void invoke(Row value, Context context) throws Exception {
+//                        SinkFunction.super.invoke(value, context);
+//                    }
+//                })
 //                .addSink(new TwoPhaseCommitSinkFunction<Boolean, Object,Object>(TypeInformation.of(Object.class).createSerializer(
 //                env.getConfig()),TypeInformation.of(Object.class).createSerializer(
 //                env.getConfig())) {
@@ -350,7 +351,7 @@ public class JoinWithStaticExample2 {
 //
 //            }
 //        })
-                .setParallelism(sinkParallelism);
+//                .setParallelism(sinkParallelism);
 
         // execute program
           env.execute("Fraud detection");

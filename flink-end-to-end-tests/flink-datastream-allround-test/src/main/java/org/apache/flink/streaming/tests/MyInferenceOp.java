@@ -33,7 +33,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 
-abstract class MyInferenceOp<T, U> extends KeyedProcessFunction<Integer, Row, Row> implements CheckpointedFunction {
+abstract class MyInferenceOp<T, U> extends KeyedProcessFunction<T, Row, Row> implements CheckpointedFunction {
     public String myID = "";
     public long startTime = 0;
     public long processed = 0;
@@ -122,7 +122,7 @@ abstract class MyInferenceOp<T, U> extends KeyedProcessFunction<Integer, Row, Ro
     @Override
     public void processElement(
             Row value,
-            KeyedProcessFunction<Integer, Row, Row>.Context ctx,
+            KeyedProcessFunction<T, Row, Row>.Context ctx,
             Collector<Row> out) throws Exception {
         long begin = System.currentTimeMillis();
         T k = getKey(value);
@@ -152,7 +152,7 @@ abstract class MyInferenceOp<T, U> extends KeyedProcessFunction<Integer, Row, Ro
         INDArray output = net.output(mkInput(user_prev_transactions));
         double fraudProb = output.getDouble(0,0,currentInputNum-1);
         double nonFraudProb = output.getDouble(0,1,currentInputNum-1);
-        out.collect(Row.join(value, Row.of(nonFraudProb < fraudProb)));
+        out.collect(Row.join(value, Row.of(fraudProb)));
         processed += System.currentTimeMillis()-begin;
         numSample++;
     }

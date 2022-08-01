@@ -119,7 +119,7 @@ object Controller {
         println("oneToMany: "+oneToManyWorkers.mkString(" "))
         val MCS = if(scheduler != "epoch") {
           val result = FriesAlg.computeMCS(graphWithMapping._1, targetWorkers, oneToManyWorkers)
-          println("MCS: "+result)
+          // println("MCS: "+result)
           result
         }else{
           graphWithMapping._1
