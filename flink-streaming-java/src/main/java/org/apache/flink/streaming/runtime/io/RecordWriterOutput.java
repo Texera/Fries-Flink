@@ -161,6 +161,7 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
             event = barrier.withOptions(barrier.getCheckpointOptions().withUnalignedUnsupported());
             isPriorityEvent = false;
         }
+        System.out.println("Sent barrier to "+targetOperator);
         recordWriter.broadcastEvent(event, isPriorityEvent);
     }
 

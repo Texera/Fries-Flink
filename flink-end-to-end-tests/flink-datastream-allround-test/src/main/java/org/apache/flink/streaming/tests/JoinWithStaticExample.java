@@ -99,7 +99,7 @@ public class JoinWithStaticExample {
     public static void main(String[] args) throws Exception {
         final ParameterTool pt = ParameterTool.fromArgs(new String[] {
                 "--classloader.check-leaked-classloader","false",
-                "--state_backend.checkpoint_directory", "hdfs:///10.128.0.10.8020/flink-unaligned-checkpoints",
+                "--state_backend.checkpoint_directory", "hdfs:///10.128.0.11.8020/flink-unaligned-checkpoints",
                 "--environment.checkpoint_interval","10000",
                 "--test.simulate_failure", "false",
                 "--test.simulate_failure.max_failures", String.valueOf(1),
@@ -124,8 +124,8 @@ public class JoinWithStaticExample {
         int parallelism = 4*workerNum;
         int sinkParallelism = 1;
         int sourceTPS = 1000; //3K baseline -> 6K actual
-        int changeTPSDelay = 50000;//50 secs
-        int sourceTimeLimit = 800000;
+        int changeTPSDelay = 100000;//50 secs
+        int sourceTimeLimit = 300000;
         setupEnvironment(env, pt);
         env.setBufferTimeout(0);
 
@@ -188,8 +188,8 @@ public class JoinWithStaticExample {
                     if(changeTPSDelay!= -1){
                         boolean needChange = false;
                         needChange = currentTime >=startTime+changeTPSDelay;
-                        if(needChange && sourceVersion<2){
-                            currentTPS += sourceTPS*(1+sourceVersion*6);
+                        if(needChange && sourceVersion<1){
+                            currentTPS += sourceTPS*1;
                             System.out.println("Source change to "+currentTPS+" at "+(currentTime-beginTime)/1000);
                             startTime = currentTime;
                             sourceVersion++;
@@ -379,7 +379,7 @@ public class JoinWithStaticExample {
                     numSample++;
                     //System.out.println("processing = "+(System.currentTimeMillis()-begin+" ms"));
                 }
-        }).setParallelism(parallelism).addSink(new SinkFunction<Row>() {
+        }).name("fd").setParallelism(parallelism).addSink(new SinkFunction<Row>() {
                     ArrayList<Long> delays = new ArrayList<>();
                     LinkedList<Double> window = new LinkedList<>();
                     long wrong_count = 0;

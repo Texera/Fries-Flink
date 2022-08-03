@@ -114,7 +114,7 @@ object Controller {
         val (targetVertices, targetWorkers) = getVerticesAndWorkers(targets)
         val (_, oneToManyWorkers) = getVerticesAndWorkers(oneToManyOperators)
 
-        println("graph: "+graphWithMapping._1)
+        //println("graph: "+graphWithMapping._1)
         println("target: "+targetWorkers.mkString(" "))
         println("oneToMany: "+oneToManyWorkers.mkString(" "))
         val MCS = if(scheduler != "epoch") {

@@ -399,9 +399,13 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
 
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, Set<String> targets) throws IOException {
         HashSet<String> availableOutputs = new HashSet<>();
+        HashSet<String> targetsClean = new HashSet<>();
+        for(String t: targets){
+            targetsClean.add(t.replace(" ","").replace("=","").replace("-",""));
+        }
         for (RecordWriterOutput<?> streamOutput : streamOutputs) {
             availableOutputs.add(streamOutput.targetOperator);
-            streamOutput.broadcastEvent(event, isPriorityEvent, targets);
+            streamOutput.broadcastEvent(event, isPriorityEvent, targetsClean);
         }
         System.out.println("output edges: "+availableOutputs+" target edges: "+targets);
     }
@@ -736,7 +740,7 @@ public class OperatorChain<OUT, OP extends StreamOperator<OUT>>
                 outSerializer,
                 sideOutputTag,
                 this,
-                edge.supportsUnalignedCheckpoints(),edge.getTargetName());
+                edge.supportsUnalignedCheckpoints(),edge.getTargetName().replace(" ","").replace("=","").replace("-",""));
     }
 
     /**
