@@ -151,8 +151,14 @@ public class RecordWriterOutput<OUT> implements WatermarkGaugeExposingOutput<Str
     }
 
     public void broadcastEvent(AbstractEvent event, boolean isPriorityEvent, Set<String> targets) throws IOException {
-        if(targets != null && !targets.contains(targetOperator)){
-            return;
+        if(targets != null){
+            boolean t = false;
+            for(String s:targets){
+                if(targetOperator.contains(s)){
+                    t = true;
+                }
+            }
+            if(!t) return;
         }
         if (isPriorityEvent
                 && event instanceof CheckpointBarrier
