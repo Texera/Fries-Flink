@@ -216,7 +216,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         long barrierId = barrier.getId();
         if(pendingBarrier == null && barrier.message != null){
             pendingBarrier = barrier;
-            numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName.split(" ")[0]);
+            numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName.substring(0,taskName.lastIndexOf(' ')));
             System.out.println(taskName+" start aligning epoch markers! expected markers = "+numExpectedBarriers+" at time="+System.currentTimeMillis());
         }
 
