@@ -201,8 +201,8 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     }
 
     private int getNumOfExpectedBarriers(HashMap<String, HashSet<String>> MCS, String workerName){
-        System.out.println(MCS.toString());
-        System.out.println(workerName);
+        System.out.println("MCS:\n"+MCS.toString()+"\n");
+        System.out.println("WorkerName:\n"+workerName+"\n");
         AtomicInteger result = new AtomicInteger();
         MCS.forEach((name,downstreams) ->{
             if(downstreams.contains(workerName)){
@@ -218,7 +218,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
         long barrierId = barrier.getId();
         if(pendingBarrier == null && barrier.message != null){
             pendingBarrier = barrier;
-            numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName.substring(0,taskName.lastIndexOf(' ')));
+            numExpectedBarriers = getNumOfExpectedBarriers(barrier.message.MCS(), taskName);
             System.out.println(taskName+" start aligning epoch markers! expected markers = "+numExpectedBarriers+" at time="+System.currentTimeMillis());
         }
 
