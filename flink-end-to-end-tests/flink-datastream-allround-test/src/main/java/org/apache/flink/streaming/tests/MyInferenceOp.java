@@ -92,19 +92,19 @@ abstract class MyInferenceOp<T, U> extends KeyedProcessFunction<T, Row, Row> imp
                 .gradientNormalizationThreshold(0.5)
                 .list().layer(new LSTM.Builder().activation(Activation.TANH).nIn(featureSize).nOut(modelScaleFactor).build());
         int originalFactor = modelScaleFactor;
-        while(modelScaleFactor>8){
-            confBuilder=confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(modelScaleFactor).nOut(modelScaleFactor/2).build());
-            modelScaleFactor/=2;
+        MultiLayerConfiguration conf;
+        if(originalFactor == 1){
+            conf = confBuilder.layer(new RnnOutputLayer.Builder(
+                            LossFunctions.LossFunction.MCXENT)
+                            .activation(Activation.SOFTMAX).nIn(modelScaleFactor).nOut(2).build())
+                    .build();
+        }else{
+            confBuilder = confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(modelScaleFactor).nOut(4).build());
+            conf = confBuilder.layer(new RnnOutputLayer.Builder(
+                            LossFunctions.LossFunction.MCXENT)
+                            .activation(Activation.SOFTMAX).nIn(4).nOut(2).build())
+                    .build();
         }
-        while(modelScaleFactor< originalFactor){
-            confBuilder=confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(modelScaleFactor).nOut(modelScaleFactor*2).build());
-            modelScaleFactor*=2;
-        }
-        confBuilder = confBuilder.layer(new LSTM.Builder().activation(Activation.TANH).nIn(modelScaleFactor).nOut(16).build());
-        MultiLayerConfiguration conf = confBuilder.layer(new RnnOutputLayer.Builder(
-                        LossFunctions.LossFunction.MCXENT)
-                        .activation(Activation.SOFTMAX).nIn(16).nOut(2).build())
-                .build();
         if(net !=null){
             net.clear();
             net.close();

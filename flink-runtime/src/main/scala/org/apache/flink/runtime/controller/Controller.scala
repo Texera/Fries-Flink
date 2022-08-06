@@ -138,6 +138,7 @@ object Controller {
           case sourceWorkerName =>
             val worker = mapping(sourceWorkerName)
             val currentTime = System.currentTimeMillis()
+            println("send control to source ="+worker.toString)
             futures.append(worker.sendControlMessage(message).thenRun(new Runnable {
               override def run(): Unit = {
                 val finishedTime = System.currentTimeMillis()

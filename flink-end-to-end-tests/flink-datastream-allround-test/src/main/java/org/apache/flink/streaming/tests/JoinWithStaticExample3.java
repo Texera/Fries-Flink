@@ -46,6 +46,10 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -81,10 +85,10 @@ public class JoinWithStaticExample3 {
         });
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
         int workerNum = 10;
-        int numInputEvents = 10;
-        int numInputEvents2 = 50;
-        int modelScaleFactor = 4;
-        int modelScaleFactor2 = 4;
+        int numInputEvents = 1;
+        int numInputEvents2 = 4;
+        int modelScaleFactor = 1;
+        int modelScaleFactor2 = 8;
         boolean modelUpdating = false;
         int sourceParallelism = 1;
         int parallelism = 4*workerNum;
@@ -119,7 +123,7 @@ public class JoinWithStaticExample3 {
             public void initializeState(FunctionInitializationContext context) throws Exception {
                 Configuration conf2 = new Configuration();
                 FileSystem fs2 = FileSystem.get(new URI("hdfs://10.128.0.11:8020"),conf2);
-                stream = fs2.open(new Path("/card_transaction.v1.csv"));
+                stream = fs2.open(new Path("/card_transaction_aggregated.csv"));
                 state = context.getOperatorStateStore().getListState(new ListStateDescriptor(
                         "state", Long.class));
                 Iterator<Long> iter = state.get().iterator();
@@ -146,25 +150,25 @@ public class JoinWithStaticExample3 {
                     if(changeTPSDelay!= -1 && currentTime >=startTime+changeTPSDelay && currentTPS != changedTPS){
                         currentTPS = changedTPS;
                     }
-
-                    String[] arr = strLine2.split(",");
-                    Row r = new Row(4);
+                    String[] arr = strLine2.split(",",2);
+                    Row r = new Row(2);
                     id++;
                     r.setField(0, Integer.parseInt(arr[0])); //user
+                    r.setField(1, arr[1]);
 //                    r.setField(1, Integer.parseInt(arr[1])); //card
 //                    r.setField(2, Integer.parseInt(arr[2])); //year
 //                    r.setField(3, Integer.parseInt(arr[3])); //month
 //                    r.setField(4, Integer.parseInt(arr[4])); //date
 //                    r.setField(5, arr[5]); //time
-                    r.setField(1, arr[6]); //amount
+//                    r.setField(1, arr[6]); //amount
 //                    r.setField(7, arr[7]); //use chip
-                    r.setField(2, arr[8]); //merchant name
+//                    r.setField(2, arr[8]); //merchant name
 //                    r.setField(9, arr[9]); //merchant city
 //                    r.setField(10, arr[10]); //merchant state
 //                    r.setField(11, arr[11].isEmpty()? null :Double.valueOf(arr[11]).intValue()); //zip code
 //                    r.setField(12, Integer.parseInt(arr[12])); //MCC
 //                    r.setField(13, arr[13]); //errors
-                    r.setField(3, id); //id
+//                    r.setField(3, id); //id
                     ctx.collect(r);
                     current++;
                     if(current == currentTPS){
@@ -191,26 +195,42 @@ public class JoinWithStaticExample3 {
                     Row value,
                     ProcessFunction<Row, Row>.Context ctx,
                     Collector<Row> out) throws Exception {
-                out.collect(value);
+                if((int)value.getFieldAs(0)%5 !=0) {
+                    out.collect(value);
+                }
             }
-        }).name("replicate").setParallelism(parallelism);
+        }).name("filter-project").process(new ProcessFunction<Row, Row>() {
+            @Override
+            public void processElement(
+                    Row value,
+                    ProcessFunction<Row, Row>.Context ctx,
+                    Collector<Row> out) throws Exception {
+                String str = ((String)value.getFieldAs(1));
+                JSONArray c = new JSONArray(str.substring(1,str.length()-1).replace("\"\"","\""));
+                for (int i = 0 ; i < c.length(); i++) {
+                    JSONObject obj = c.getJSONObject(i);
+                    Integer user = obj.getInt("User");
+                    String amount = obj.getString("Amount");
+                    Long merchant = obj.getLong("Merchant Name");
+                    out.collect(Row.of(user, amount, merchant));
+                }
+            }
+        }).name("unnest").setParallelism(parallelism);
 
 
-        DataStream<Row> merchant = dynamicSource.filter((row) -> {
-            return !whitelist.contains((String)row.getFieldAs(2));
-        }).name("f1").setParallelism(workerNum).keyBy((KeySelector<Row, String>) value -> {
-            return (String) value.getField(2);
-        }).process(new MyInferenceOp<String, Double>(1, numInputEvents2, modelScaleFactor2, modelUpdating) {
+        DataStream<Row> merchant = dynamicSource.keyBy((KeySelector<Row, Long>) value -> {
+            return value.getFieldAs(2);
+        }).process(new MyInferenceOp<Long, Double>(1, numInputEvents2, modelScaleFactor2, modelUpdating) {
 
             @Override
             public void initializeState(FunctionInitializationContext context) throws Exception {
-                prev_transaction_state = context.getKeyedStateStore().getMapState(new MapStateDescriptor<String,LinkedList<Double>>("map"+myID,
-                        TypeInformation.of(new TypeHint<String>() {}), TypeInformation.of(
+                prev_transaction_state = context.getKeyedStateStore().getMapState(new MapStateDescriptor<Long,LinkedList<Double>>("map"+myID,
+                        TypeInformation.of(new TypeHint<Long>() {}), TypeInformation.of(
                         new TypeHint<LinkedList<Double>>() {})));
             }
 
             @Override
-            public String getKey(Row row) {
+            public Long getKey(Row row) {
                 return row.getFieldAs(2);
             }
 
@@ -267,59 +287,8 @@ public class JoinWithStaticExample3 {
                             }
                             return Nd4j.create(user_trans, new int[]{1, 1, currentInputNum});
                     }
-                }).name("user").setParallelism(parallelism).process(new ProcessFunction<Row, Row>() {
-            @Override
-            public void processElement(
-                    Row value,
-                    ProcessFunction<Row, Row>.Context ctx,
-                    Collector<Row> out) throws Exception {
-                out.collect(Row.join(Row.project(value, new int[]{0,1,2,3}), Row.of((double)value.getFieldAs(4)*0.8)));
-            }
-        }).name("weight").filter(r -> (double)r.getFieldAs(4)> 0.3).name("f2").setParallelism(workerNum);
-        user.connect(merchant).keyBy(r-> r.getField(3), r-> r.getField(3)).process(new KeyedCoProcessFunction<Long, Row, Row, Row>() {
-                    HashMap<Long, Row> pairMap = new HashMap<>();
-                    @Override
-                    public void processElement1(
-                            Row value,
-                            KeyedCoProcessFunction<Long, Row, Row, Row>.Context ctx,
-                            Collector<Row> out) throws Exception {
-                        Long key = value.getFieldAs(3);
-                        if(pairMap.containsKey(key)){
-                            Row pair = pairMap.get(key);
-                            out.collect(Row.join(Row.project(pair, new int[]{0,1,2}),Row.of(value.getField(4), pair.getField(4))));
-                            pairMap.remove(key);
-                        }else{
-                            pairMap.put(key, value);
-                        }
-                    }
-
-                    @Override
-                    public void processElement2(
-                            Row value,
-                            KeyedCoProcessFunction<Long, Row, Row, Row>.Context ctx,
-                            Collector<Row> out) throws Exception {
-                        Long key = value.getFieldAs(3);
-                        if(pairMap.containsKey(key)){
-                            Row pair = pairMap.get(key);
-                            out.collect(Row.join(Row.project(pair, new int[]{0,1,2}),Row.of(value.getField(4), pair.getField(4))));
-                            pairMap.remove(key);
-                        }else{
-                            pairMap.put(key, value);
-                        }
-                    }
-                }).name("selfjoin").setParallelism(parallelism).process(new ProcessFunction<Row, Row>(){
-                    @Override
-                    public void processElement(
-                            Row value,
-                            ProcessFunction<Row, Row>.Context ctx,
-                            Collector<Row> out) throws Exception {
-                        value.setField(1, Base64.getEncoder().encode(((String)value.getFieldAs(1)).getBytes(
-                                StandardCharsets.UTF_8)));
-                        value.setField(2, Base64.getEncoder().encode(((String)value.getFieldAs(2)).getBytes(
-                                StandardCharsets.UTF_8)));
-                        out.collect(value);
-                    }
-                }).name("encrypt").setParallelism(workerNum)
+                }).name("user").setParallelism(parallelism);
+        user.union(merchant).filter(r -> (double)r.getFieldAs(3)>0.5).name("union-filter")
         .addSink(new SinkFunction<Row>() {
                     @Override
                     public void invoke(Row value, Context context) throws Exception {

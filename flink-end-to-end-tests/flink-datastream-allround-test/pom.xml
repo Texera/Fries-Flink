@@ -81,6 +81,12 @@ under the License.
 			<version>${project.version}</version>
 			<scope>test</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.json</groupId>
+			<artifactId>json</artifactId>
+			<version>20160212</version>
+			<scope>compile</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -108,7 +114,7 @@ under the License.
 							<finalName>PackagedProgram</finalName>
 							<transformers>
 								<transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-									<mainClass>org.apache.flink.streaming.tests.JoinWithStaticExample</mainClass>
+									<mainClass>org.apache.flink.streaming.tests.JoinWithStaticExample3</mainClass>
 								</transformer>
 							</transformers>
 						</configuration>
