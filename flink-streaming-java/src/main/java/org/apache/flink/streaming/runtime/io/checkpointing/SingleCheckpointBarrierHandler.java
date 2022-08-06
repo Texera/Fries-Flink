@@ -201,6 +201,8 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
     }
 
     private int getNumOfExpectedBarriers(HashMap<String, HashSet<String>> MCS, String workerName){
+        System.out.println(MCS.toString());
+        System.out.println(workerName);
         AtomicInteger result = new AtomicInteger();
         MCS.forEach((name,downstreams) ->{
             if(downstreams.contains(workerName)){
