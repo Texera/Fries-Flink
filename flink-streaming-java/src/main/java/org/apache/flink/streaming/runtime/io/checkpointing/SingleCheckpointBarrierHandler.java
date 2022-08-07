@@ -498,7 +498,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
         @Override
         public boolean allBarriersReceived() {
-            return numBarriersReceived == numOpenChannels;
+            return numBarriersReceived == numOpenChannels ||  (currentCheckpointId == ControlMessage.FixedEpochNumber() && numBarriersReceived == numExpectedBarriers);
         }
 
         @Override
