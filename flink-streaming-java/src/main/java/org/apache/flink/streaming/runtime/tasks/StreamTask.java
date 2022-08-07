@@ -403,7 +403,7 @@ public abstract class StreamTask<OUT, OP extends StreamOperator<OUT>> extends Ab
                 controlMessage.callback().accept(new Object[]{jobVId, subtaskIdx, name});
                 CheckpointBarrier barrier = new CheckpointBarrier(ControlMessage.FixedEpochNumber(), -1, CheckpointOptions.forCheckpointWithDefaultLocation());
                 barrier.setMessage(controlMessage);
-                operatorChain.broadcastEvent(barrier, false, controlMessage.MCS().get(workerName).stream().map(s -> s.split("-")[0]).collect(
+                operatorChain.broadcastEvent(barrier, false, controlMessage.MCS().get(workerName).stream().map(s -> s.substring(0,s.lastIndexOf('-'))).collect(
                         Collectors.toSet()));
                 f.complete(null);
             },"control",controlMessage, f);
