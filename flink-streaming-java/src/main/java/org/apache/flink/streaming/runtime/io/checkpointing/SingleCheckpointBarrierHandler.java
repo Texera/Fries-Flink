@@ -244,7 +244,7 @@ public class SingleCheckpointBarrierHandler extends CheckpointBarrierHandler {
 
         // we must mark alignment end before calling currentState.barrierReceived which might
         // trigger a checkpoint with unfinished future for alignment duration
-        if (numBarriersReceived == numOpenChannels) {
+        if (numBarriersReceived == numOpenChannels || (currentCheckpointId == ControlMessage.FixedEpochNumber() && numBarriersReceived == numExpectedBarriers)) {
             if (getNumOpenChannels() > 1) {
                 markAlignmentEnd();
             }
